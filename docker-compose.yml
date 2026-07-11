@@ -1,0 +1,134 @@
+services:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: distributweet-kafka
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  kafka-init:
+    image: apache/kafka:3.7.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic posts.raw --partitions 3 --replication-factor 1 &&
+       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic posts.cleaned --partitions 3 --replication-factor 1 &&
+       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic recommendation.events --partitions 1 --replication-factor 1"
+
+  qdrant:
+    image: qdrant/qdrant:v1.11.3
+    container_name: distributweet-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  producer:
+    build:
+      context: ./producer
+    profiles: ["tools"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: posts.raw
+    volumes:
+      - ./sample-data:/sample-data:ro
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+
+  spark-stream:
+    build:
+      context: ./spark-stream
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      RAW_TOPIC: posts.raw
+      CLEANED_TOPIC: posts.cleaned
+      CHECKPOINT_DIR: /checkpoints/post-cleaner
+      ARCHIVE_DIR: /data/posts
+      ACCEPTED_LANGUAGES: en,tr
+      MIN_TEXT_LENGTH: 12
+      WATERMARK_DELAY: 2 hours
+    volumes:
+      - spark-checkpoints:/checkpoints
+      - spark-data:/data
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  embedding-worker:
+    build:
+      context: ./embedding-worker
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC: posts.cleaned
+      KAFKA_GROUP_ID: embedding-worker
+      QDRANT_URL: http://qdrant:6333
+      POSTS_COLLECTION: posts
+      VECTOR_SIZE: 384
+      MODEL_NAME: intfloat/multilingual-e5-small
+      BATCH_SIZE: 32
+      RUN_CONSUMER: "true"
+    ports:
+      - "8001:8001"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+
+  recommendation-api:
+    build:
+      context: ./recommendation-api
+    environment:
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 8080
+      QDRANT_URL: http://qdrant:6333
+      EMBEDDING_URL: http://embedding-worker:8001
+      POSTS_COLLECTION: posts
+      USERS_COLLECTION: users
+      VECTOR_SIZE: 384
+    ports:
+      - "8080:8080"
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      embedding-worker:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  kafka-data:
+  qdrant-data:
+  spark-checkpoints:
+  spark-data:

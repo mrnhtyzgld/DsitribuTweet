@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "distributweet-producer"
+version = "0.1.0"
+description = "JSONL replay producer for DistribuTweet"
+requires-python = ">=3.11"
+dependencies = [
+  "confluent-kafka>=2.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+]
+
+[project.scripts]
+distributweet-replay = "producer.replay:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

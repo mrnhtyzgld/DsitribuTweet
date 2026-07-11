@@ -1,0 +1,50 @@
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# JVM / Scala / Maven
+target/
+project/target/
+project/project/
+.bsp/
+.metals/
+.scala-build/
+.cache/
+.m2/
+
+# Docker/local runtime state
+data/
+checkpoints/
+qdrant_storage/
+kafka-data/
+spark-warehouse/
+derby.log
+
+# Logs and reports
+*.log
+*.tmp
+*.pid
+
+# Generated archives
+*.jar
+*.parquet

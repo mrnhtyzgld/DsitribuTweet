@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DistribuTweetPostEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "postId",
+    "authorId",
+    "text",
+    "language",
+    "createdAt",
+    "ingestedAt",
+    "source"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "postId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authorId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "language": {
+      "type": "string",
+      "enum": ["en", "tr"]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ingestedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
