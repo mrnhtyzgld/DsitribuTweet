@@ -90,3 +90,14 @@ def test_replay_produces_keyed_messages(tmp_path: Path) -> None:
     assert producer.messages[0][0] == "posts.raw"
     assert producer.messages[0][1] == "post-1"
     assert json.loads(producer.messages[0][2])["text"] == "A useful post about Kafka streams"
+
+
+def test_sample_dataset_is_parseable() -> None:
+    sample_path = Path(__file__).resolve().parents[2] / "sample-data" / "posts.jsonl"
+
+    events = list(load_events(sample_path))
+
+    assert len(events) == 60
+    assert any("CUDA" in event["text"] for event in events)
+    assert any("Barcelona" in event["text"] for event in events)
+    assert any(event["language"] == "tr" for event in events)

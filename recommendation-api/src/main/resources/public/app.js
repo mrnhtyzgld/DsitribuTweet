@@ -1,6 +1,7 @@
 const state = {
   demoUsers: [],
   feeds: new Map(),
+  datasetTotal: 0,
 };
 
 const el = (id) => document.getElementById(id);
@@ -50,6 +51,7 @@ function setBusy(button, busy) {
 }
 
 function renderDataset(dataset) {
+  state.datasetTotal = dataset.totalIndexed;
   el("indexed-count").textContent = dataset.totalIndexed.toLocaleString();
   el("visible-count").textContent = dataset.visible.toLocaleString();
   el("updated-at").textContent = fmtDate(dataset.generatedAt);
@@ -91,6 +93,9 @@ function renderPeople() {
     const card = document.createElement("article");
     card.className = "person-card";
     card.dataset.userId = user.userId;
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", `${user.displayName} feed`);
     card.innerHTML = `
       <div class="person-head">
         <div>
@@ -98,7 +103,7 @@ function renderPeople() {
           <h3>${escapeHtml(user.displayName)}</h3>
         </div>
         <div class="person-actions">
-          <button class="secondary" data-action="build">Build</button>
+          <button class="secondary" data-action="build">Save</button>
           <button class="primary" data-action="feed">Feed</button>
         </div>
       </div>
@@ -110,20 +115,72 @@ function renderPeople() {
     grid.appendChild(card);
   }
 
+  grid.querySelectorAll(".person-card").forEach((card) => {
+    card.addEventListener("click", async (event) => {
+      if (event.target.closest("button")) return;
+      const userId = card.dataset.userId;
+      const user = state.demoUsers.find((item) => item.userId === userId);
+      if (user) await openPerson(user, card);
+    });
+    card.addEventListener("keydown", async (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      const userId = card.dataset.userId;
+      const user = state.demoUsers.find((item) => item.userId === userId);
+      if (user) await openPerson(user, card);
+    });
+  });
+
   grid.querySelectorAll("button[data-action='build']").forEach((button) => {
     button.addEventListener("click", async (event) => {
       const userId = event.target.closest(".person-card").dataset.userId;
       const user = state.demoUsers.find((item) => item.userId === userId);
-      await buildProfile(user, event.target);
-      await loadFeed(userId);
+      if (user) await openPerson(user, event.target);
     });
   });
 
   grid.querySelectorAll("button[data-action='feed']").forEach((button) => {
     button.addEventListener("click", async (event) => {
       const userId = event.target.closest(".person-card").dataset.userId;
-      await loadFeed(userId);
+      const user = state.demoUsers.find((item) => item.userId === userId);
+      if (user) await openPerson(user, event.target);
     });
+  });
+}
+
+async function openPerson(user, trigger) {
+  const card = document.querySelector(`.person-card[data-user-id="${CSS.escape(user.userId)}"]`);
+  selectPerson(user.userId);
+  setCardBusy(card, true);
+  const target = card ? card.querySelector("[data-feed]") : null;
+  if (target) {
+    target.innerHTML = `<div class="empty">Loading ${escapeHtml(user.displayName)} feed from indexed posts...</div>`;
+  }
+  try {
+    await loadDataset();
+    await buildProfile(user, trigger);
+    await loadFeed(user.userId);
+  } catch (error) {
+    if (target) {
+      target.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
+    }
+    showToast(error.message);
+  } finally {
+    setCardBusy(card, false);
+  }
+}
+
+function selectPerson(userId) {
+  document.querySelectorAll(".person-card").forEach((card) => {
+    card.classList.toggle("active", card.dataset.userId === userId);
+  });
+}
+
+function setCardBusy(card, busy) {
+  if (!card) return;
+  card.classList.toggle("loading", busy);
+  card.querySelectorAll("button").forEach((button) => {
+    button.disabled = busy;
   });
 }
 
@@ -133,10 +190,14 @@ function renderFeed(userId, feed) {
   target.innerHTML = "";
 
   if (!feed.items.length) {
-    target.innerHTML = `<div class="empty">No recommendations yet.</div>`;
+    target.innerHTML = `<div class="empty">No matching indexed posts yet.</div>`;
     return;
   }
 
+  const context = document.createElement("div");
+  context.className = "feed-context";
+  context.textContent = `${feed.items.length} recommendations pulled from ${state.datasetTotal.toLocaleString()} indexed posts`;
+  target.appendChild(context);
   for (const item of feed.items.slice(0, 6)) {
     target.appendChild(feedItemElement(item));
   }
@@ -146,9 +207,13 @@ function renderCustomFeed(feed) {
   const target = el("custom-feed");
   target.innerHTML = "";
   if (!feed.items.length) {
-    target.innerHTML = `<div class="empty">No recommendations yet.</div>`;
+    target.innerHTML = `<div class="empty">No matching indexed posts yet.</div>`;
     return;
   }
+  const context = document.createElement("div");
+  context.className = "feed-context";
+  context.textContent = `${feed.items.length} recommendations pulled from ${state.datasetTotal.toLocaleString()} indexed posts`;
+  target.appendChild(context);
   for (const item of feed.items.slice(0, 8)) {
     target.appendChild(feedItemElement(item));
   }
@@ -207,6 +272,11 @@ async function seedAllProfiles() {
   }
 }
 
+async function ensureDemoProfiles() {
+  const response = await fetchJson("/demo/users", { method: "POST", body: "{}" });
+  showToast(`Profiles ready for ${response.profiles.length} people`);
+}
+
 async function buildProfile(user, button) {
   setBusy(button, true);
   try {
@@ -236,6 +306,7 @@ async function loadAllFeeds() {
   const button = el("load-feeds");
   setBusy(button, true);
   try {
+    await ensureDemoProfiles();
     await Promise.all(state.demoUsers.map((user) => loadFeed(user.userId)));
   } finally {
     setBusy(button, false);
@@ -262,6 +333,7 @@ async function saveCustomProfile() {
       body: JSON.stringify({ interests }),
     });
     const feed = await fetchJson(`/users/${encodeURIComponent(userId)}/feed?limit=12`);
+    await loadDataset();
     renderCustomFeed(feed);
     showToast(`Profile saved for ${userId}`);
   } finally {
