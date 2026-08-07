@@ -18,7 +18,8 @@ dependencies = [
 
 [project.optional-dependencies]
 model = [
-  "sentence-transformers>=3.0.0",
+  "torch==2.5.1+cpu",
+  "sentence-transformers==3.3.1",
 ]
 dev = [
   "pytest>=8.2.0",
