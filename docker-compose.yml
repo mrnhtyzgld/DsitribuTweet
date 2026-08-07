@@ -118,6 +118,7 @@ services:
       POSTS_COLLECTION: posts
       USERS_COLLECTION: users
       VECTOR_SIZE: 384
+      MAX_POST_AGE_HOURS: 2160
     ports:
       - "8080:8080"
     depends_on:

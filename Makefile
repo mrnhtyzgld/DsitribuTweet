@@ -1,4 +1,5 @@
-COMPOSE ?= docker compose
+DOCKER ?= /usr/bin/docker
+COMPOSE ?= $(DOCKER) compose
 USER_ID ?= burak
 REPLAY_FILE ?= /sample-data/posts.jsonl
 

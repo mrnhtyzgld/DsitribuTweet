@@ -2,7 +2,8 @@ package com.distributweet.api
 
 import cats.effect.Async
 import cats.syntax.all._
-import org.http4s.{Header, HttpRoutes, Response}
+import fs2.Stream
+import org.http4s.{Header, HttpRoutes, Response, Status}
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.dsl.Http4sDsl
 import org.typelevel.ci.CIString
@@ -64,11 +65,14 @@ final class ApiRoutes[F[_]: Async](config: AppConfig, service: RecommendationSer
       }
       .flatMap {
         case Some(body) =>
-          Ok(body).map(
-            _.putHeaders(
-              Header.Raw(CIString("Content-Type"), contentType),
-              Header.Raw(CIString("Cache-Control"), "no-store")
-            )
+          Async[F].pure(
+            Response[F](
+              status = Status.Ok,
+              body = Stream.emits(body.getBytes(StandardCharsets.UTF_8)).covary[F]
+            ).putHeaders(
+                Header.Raw(CIString("Content-Type"), contentType),
+                Header.Raw(CIString("Cache-Control"), "no-store")
+              )
           )
         case None => NotFound()
       }

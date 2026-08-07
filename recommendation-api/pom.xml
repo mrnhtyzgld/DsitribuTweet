@@ -12,6 +12,7 @@
     <scala.binary.version>2.13</scala.binary.version>
     <http4s.version>0.23.27</http4s.version>
     <circe.version>0.14.9</circe.version>
+    <cats.core.version>2.12.0</cats.core.version>
     <cats.effect.version>3.5.4</cats.effect.version>
     <sttp.version>3.9.7</sttp.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -27,6 +28,11 @@
       <groupId>org.typelevel</groupId>
       <artifactId>cats-effect_${scala.binary.version}</artifactId>
       <version>${cats.effect.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.typelevel</groupId>
+      <artifactId>cats-core_${scala.binary.version}</artifactId>
+      <version>${cats.core.version}</version>
     </dependency>
     <dependency>
       <groupId>org.http4s</groupId>
