@@ -51,4 +51,27 @@ final class RecommendationService[F[_]: Async](
       }
     } yield response
   }
+
+  def dataset(limit: Int): F[DatasetResponse] = {
+    val boundedLimit = math.max(1, math.min(limit, 500))
+    for {
+      generatedAt <- now
+      total <- store.countPosts(config.postsCollection)
+      posts <- store.listPosts(boundedLimit, config.postsCollection)
+    } yield DatasetResponse(
+      generatedAt = generatedAt.toString,
+      totalIndexed = total,
+      visible = posts.length,
+      items = posts
+    )
+  }
+
+  def demoUsers: F[DemoUsersResponse] =
+    Async[F].pure(DemoUsersResponse(DemoProfiles.users))
+
+  def seedDemoUsers(): F[DemoSeedResponse] =
+    for {
+      profiles <- DemoProfiles.users.traverse(user => createOrUpdateProfile(user.userId, user.interests))
+      generatedAt <- now
+    } yield DemoSeedResponse(generatedAt = generatedAt.toString, profiles = profiles)
 }

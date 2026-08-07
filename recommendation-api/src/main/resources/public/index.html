@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DistribuTweet</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Local semantic feed lab</p>
+          <h1>DistribuTweet</h1>
+        </div>
+        <div class="actions">
+          <button id="refresh-all" class="secondary">Refresh</button>
+          <button id="seed-all" class="primary">Seed profiles</button>
+        </div>
+      </header>
+
+      <section class="pipeline" aria-label="Pipeline">
+        <div class="pipe-node raw">
+          <span>JSONL</span>
+          <strong>Replay</strong>
+        </div>
+        <div class="pipe-link"></div>
+        <div class="pipe-node kafka">
+          <span>Kafka</span>
+          <strong>posts.raw</strong>
+        </div>
+        <div class="pipe-link"></div>
+        <div class="pipe-node spark">
+          <span>Spark</span>
+          <strong>cleaned</strong>
+        </div>
+        <div class="pipe-link"></div>
+        <div class="pipe-node vector">
+          <span>Qdrant</span>
+          <strong>vectors</strong>
+        </div>
+        <div class="pipe-link"></div>
+        <div class="pipe-node api">
+          <span>http4s</span>
+          <strong>feed</strong>
+        </div>
+      </section>
+
+      <section class="status-grid" aria-label="Status">
+        <div class="stat">
+          <span>API</span>
+          <strong id="api-status">checking</strong>
+        </div>
+        <div class="stat">
+          <span>Indexed posts</span>
+          <strong id="indexed-count">0</strong>
+        </div>
+        <div class="stat">
+          <span>Visible rows</span>
+          <strong id="visible-count">0</strong>
+        </div>
+        <div class="stat">
+          <span>Updated</span>
+          <strong id="updated-at">never</strong>
+        </div>
+      </section>
+
+      <section class="layout">
+        <section class="panel dataset-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Indexed corpus</p>
+              <h2>Dataset</h2>
+            </div>
+            <div class="panel-actions">
+              <input id="dataset-limit" type="number" min="1" max="500" value="80" />
+              <button id="refresh-dataset" class="secondary">Reload</button>
+            </div>
+          </div>
+          <div id="dataset-empty" class="empty">No indexed posts yet.</div>
+          <div id="dataset-list" class="dataset-list"></div>
+        </section>
+
+        <aside class="panel custom-panel">
+          <div class="panel-head compact">
+            <div>
+              <p class="eyebrow">Manual profile</p>
+              <h2>Custom user</h2>
+            </div>
+          </div>
+          <label>
+            User ID
+            <input id="custom-user-id" type="text" value="local-reader" />
+          </label>
+          <label>
+            Interests
+            <textarea id="custom-interests" rows="6">distributed systems
+GPU programming
+large language models</textarea>
+          </label>
+          <button id="save-custom" class="primary full">Save and load feed</button>
+          <div id="custom-feed" class="feed-list compact-feed"></div>
+        </aside>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Distributed assumption, local run</p>
+            <h2>People and feeds</h2>
+          </div>
+          <button id="load-feeds" class="secondary">Load feeds</button>
+        </div>
+        <div id="people-grid" class="people-grid"></div>
+      </section>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -15,6 +15,8 @@ trait VectorStore[F[_]] {
   def upsertUser(userId: String, vector: List[Double], interests: List[String], collection: String): F[Unit]
   def getUserVector(userId: String, collection: String): F[Option[List[Double]]]
   def searchPosts(vector: List[Double], limit: Int, collection: String): F[List[Candidate]]
+  def countPosts(collection: String): F[Long]
+  def listPosts(limit: Int, collection: String): F[List[DatasetPost]]
 }
 
 final class HttpQdrantClient[F[_]: Async](baseUrl: String, vectorSize: Int, backend: SttpBackend[F, Any])
@@ -101,6 +103,38 @@ final class HttpQdrantClient[F[_]: Async](baseUrl: String, vectorSize: Int, back
     }
   }
 
+  override def countPosts(collection: String): F[Long] = {
+    val body = Json.obj("exact" -> Json.fromBoolean(true))
+    val request =
+      basicRequest
+        .post(uriFor(s"/collections/$collection/points/count"))
+        .contentType("application/json")
+        .body(body.noSpaces)
+        .response(asJson[QdrantCountResponse])
+
+    sendJson(request).map(_.result.count)
+  }
+
+  override def listPosts(limit: Int, collection: String): F[List[DatasetPost]] = {
+    val body =
+      Json.obj(
+        "limit" -> Json.fromInt(limit),
+        "with_payload" -> Json.fromBoolean(true),
+        "with_vector" -> Json.fromBoolean(false)
+      )
+
+    val request =
+      basicRequest
+        .post(uriFor(s"/collections/$collection/points/scroll"))
+        .contentType("application/json")
+        .body(body.noSpaces)
+        .response(asJson[QdrantScrollResponse])
+
+    sendJson(request).map { response =>
+      response.result.points.flatMap(_.payload).map(toDatasetPost).sortBy(post => post.createdAt).reverse
+    }
+  }
+
   private def createCollection(name: String): F[Unit] = {
     val body =
       Json.obj(
@@ -137,4 +171,14 @@ final class HttpQdrantClient[F[_]: Async](baseUrl: String, vectorSize: Int, back
     Uri
       .parse(s"${baseUrl.stripSuffix("/")}$path")
       .fold(error => throw new IllegalArgumentException(error), identity)
+
+  private def toDatasetPost(payload: PostPayload): DatasetPost =
+    DatasetPost(
+      postId = payload.postId,
+      text = payload.text,
+      authorId = payload.authorId,
+      language = payload.language,
+      createdAt = payload.createdAtIso.getOrElse(java.time.Instant.ofEpochSecond(payload.createdAt).toString),
+      source = payload.source
+    )
 }

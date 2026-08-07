@@ -22,8 +22,14 @@ The first version is intentionally content-based only. It does not use a follow 
 make up
 make create-topics
 make replay
-make create-profile
+make seed-demo-users
 make get-feed
+```
+
+Open the local dashboard:
+
+```bash
+make ui
 ```
 
 Useful endpoints:
@@ -38,9 +44,14 @@ The recommendation API exposes:
 ```text
 POST /users/{userId}/interests
 GET  /users/{userId}/feed?limit=20
+GET  /posts?limit=100
+GET  /demo/users
+POST /demo/users
 GET  /health
 GET  /metrics
 ```
+
+The dashboard at `http://localhost:8080` shows indexed posts from Qdrant, bundled demo users, per-user feeds, and a custom profile form.
 
 ## Development
 

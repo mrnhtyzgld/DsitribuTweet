@@ -14,14 +14,29 @@ object JsonCodecs {
   implicit val postPayloadDecoder: Decoder[PostPayload] = deriveDecoder
   implicit val feedItemEncoder: Encoder[FeedItem] = deriveEncoder
   implicit val feedResponseEncoder: Encoder[FeedResponse] = deriveEncoder
+  implicit val datasetPostEncoder: Encoder[DatasetPost] = deriveEncoder
+  implicit val datasetResponseEncoder: Encoder[DatasetResponse] = deriveEncoder
+  implicit val demoUserEncoder: Encoder[DemoUser] = deriveEncoder
+  implicit val demoUsersResponseEncoder: Encoder[DemoUsersResponse] = deriveEncoder
+  implicit val demoSeedResponseEncoder: Encoder[DemoSeedResponse] = deriveEncoder
 
   final case class QdrantRetrieveResponse(result: List[QdrantRetrievedPoint])
   final case class QdrantRetrievedPoint(id: Json, payload: Option[Json], vector: Option[List[Double]])
   final case class QdrantSearchResponse(result: List[QdrantScoredPoint])
   final case class QdrantScoredPoint(id: Json, score: Double, payload: Option[PostPayload])
+  final case class QdrantScrollResponse(result: QdrantScrollResult)
+  final case class QdrantScrollResult(points: List[QdrantScrollPoint])
+  final case class QdrantScrollPoint(id: Json, payload: Option[PostPayload])
+  final case class QdrantCountResponse(result: QdrantCountResult)
+  final case class QdrantCountResult(count: Long)
 
   implicit val qdrantRetrievedPointDecoder: Decoder[QdrantRetrievedPoint] = deriveDecoder
   implicit val qdrantRetrieveResponseDecoder: Decoder[QdrantRetrieveResponse] = deriveDecoder
   implicit val qdrantScoredPointDecoder: Decoder[QdrantScoredPoint] = deriveDecoder
   implicit val qdrantSearchResponseDecoder: Decoder[QdrantSearchResponse] = deriveDecoder
+  implicit val qdrantScrollPointDecoder: Decoder[QdrantScrollPoint] = deriveDecoder
+  implicit val qdrantScrollResultDecoder: Decoder[QdrantScrollResult] = deriveDecoder
+  implicit val qdrantScrollResponseDecoder: Decoder[QdrantScrollResponse] = deriveDecoder
+  implicit val qdrantCountResultDecoder: Decoder[QdrantCountResult] = deriveDecoder
+  implicit val qdrantCountResponseDecoder: Decoder[QdrantCountResponse] = deriveDecoder
 }

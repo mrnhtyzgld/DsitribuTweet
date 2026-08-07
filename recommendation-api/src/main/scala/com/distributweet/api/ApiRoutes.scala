@@ -2,9 +2,12 @@ package com.distributweet.api
 
 import cats.effect.Async
 import cats.syntax.all._
-import org.http4s.HttpRoutes
+import org.http4s.{Header, HttpRoutes, Response}
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.dsl.Http4sDsl
+import org.typelevel.ci.CIString
+
+import java.nio.charset.StandardCharsets
 
 import JsonCodecs._
 
@@ -13,11 +16,29 @@ final class ApiRoutes[F[_]: Async](config: AppConfig, service: RecommendationSer
 
   val routes: HttpRoutes[F] =
     HttpRoutes.of[F] {
+      case GET -> Root =>
+        staticResource("index.html", "text/html; charset=utf-8")
+
+      case GET -> Root / "styles.css" =>
+        staticResource("styles.css", "text/css; charset=utf-8")
+
+      case GET -> Root / "app.js" =>
+        staticResource("app.js", "application/javascript; charset=utf-8")
+
       case GET -> Root / "health" =>
         Ok(HealthResponse("ok"))
 
       case GET -> Root / "metrics" =>
         Ok(MetricsResponse("recommendation-api", config.postsCollection, config.usersCollection))
+
+      case GET -> Root / "posts" :? LimitQueryParam(limitParam) =>
+        service.dataset(limitParam.getOrElse(100)).flatMap(Ok(_))
+
+      case GET -> Root / "demo" / "users" =>
+        service.demoUsers.flatMap(Ok(_))
+
+      case POST -> Root / "demo" / "users" =>
+        service.seedDemoUsers().flatMap(Ok(_))
 
       case request @ POST -> Root / "users" / userId / "interests" =>
         request
@@ -32,4 +53,23 @@ final class ApiRoutes[F[_]: Async](config: AppConfig, service: RecommendationSer
           case None => NotFound(Map("error" -> s"user profile not found: $userId"))
         }
     }
+
+  private def staticResource(path: String, contentType: String): F[Response[F]] =
+    Async[F]
+      .blocking {
+        Option(getClass.getResourceAsStream(s"/public/$path")).map { stream =>
+          try new String(stream.readAllBytes(), StandardCharsets.UTF_8)
+          finally stream.close()
+        }
+      }
+      .flatMap {
+        case Some(body) =>
+          Ok(body).map(
+            _.putHeaders(
+              Header.Raw(CIString("Content-Type"), contentType),
+              Header.Raw(CIString("Cache-Control"), "no-store")
+            )
+          )
+        case None => NotFound()
+      }
 }

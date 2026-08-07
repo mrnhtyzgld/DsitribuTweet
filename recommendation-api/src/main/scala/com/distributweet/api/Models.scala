@@ -38,3 +38,18 @@ final case class FeedItem(
 )
 
 final case class FeedResponse(userId: String, generatedAt: String, items: List[FeedItem])
+
+final case class DatasetPost(
+    postId: String,
+    text: String,
+    authorId: String,
+    language: String,
+    createdAt: String,
+    source: Option[String]
+)
+
+final case class DatasetResponse(generatedAt: String, totalIndexed: Long, visible: Int, items: List[DatasetPost])
+
+final case class DemoUser(userId: String, displayName: String, interests: List[String])
+final case class DemoUsersResponse(users: List[DemoUser])
+final case class DemoSeedResponse(generatedAt: String, profiles: List[UserProfileResponse])
