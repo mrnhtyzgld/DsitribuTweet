@@ -1,0 +1,39 @@
+# ---- build asamasi ----
+FROM sbtscala/scala-sbt:eclipse-temurin-17.0.19_10_1.12.15_2.12.21 AS build
+
+WORKDIR /build
+
+# Once build tanimlari: bagimlilik cozumu kod degisiminde tekrarlanmasin
+COPY build.sbt .
+COPY project/ project/
+RUN sbt update
+
+COPY common/ common/
+COPY spark-cleaner/ spark-cleaner/
+
+# Testler build'in parcasi: parse/decode mantigi bozuksa image olusmaz
+RUN sbt common/test "sparkCleaner/assembly"
+
+# ---- calisma asamasi ----
+FROM apache/spark:3.5.4
+
+USER root
+WORKDIR /app
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /build/spark-cleaner/target/scala-2.12/spark-cleaner.jar /app/spark-cleaner.jar
+
+# mBERT vocab: token id -> token. Build sirasinda indiriliyor ki
+# calisma aninda internet gerekmesin.
+RUN curl -fsSL -o /app/vocab.txt \
+    https://huggingface.co/google-bert/bert-base-multilingual-cased/resolve/main/vocab.txt \
+ && test -s /app/vocab.txt \
+ && echo "vocab satir sayisi: $(wc -l < /app/vocab.txt)"
+
+COPY submit.sh /app/submit.sh
+RUN chmod +x /app/submit.sh
+
+ENTRYPOINT ["/app/submit.sh"]

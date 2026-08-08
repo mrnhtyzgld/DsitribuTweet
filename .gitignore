@@ -1,0 +1,22 @@
+# Scala / sbt
+target/
+.bsp/
+.bloop/
+.metals/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Model / tokenizer onbellegi
+.hf/
+
+# IDE
+.idea/
+.vscode/
+
+# Yerel veri (RecSys TSV dosyalari cok buyuk)
+data/
+*.tsv
