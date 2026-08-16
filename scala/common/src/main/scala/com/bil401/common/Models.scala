@@ -3,20 +3,23 @@ package com.bil401.common
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 
-/** RecSys 2021 Challenge veri semasi (Table 1).
+/** RecSys 2021 Challenge'tan turetilen feature semasi.
   *
   * Kaynak: "The 2021 RecSys Challenge Dataset: Fairness is not optional"
   * https://arxiv.org/pdf/2109.08245
   *
   * Orijinal veri TSV formatindadir; liste alanlari 0x01 ile ayrilir.
   * `textTokens` duz metin degil, bert-base-multilingual-cased token ID'leridir.
+  * Gercek training TSV dosyasinda ek engagement label kolonlari bulunabilir;
+  * bu content-based prototip ilk feature kolonlarini kullanir ve fazlasini
+  * parse sirasinda yok sayar.
   */
 object RecSysSchema {
 
   /** Liste tipindeki alanlarin ayraci (orijinal veri setiyle ayni). */
   val ListSep: Char = 0x01.toChar
 
-  /** Table 1'deki kolon sirasi. Producer bu sirayla yazar. */
+  /** Prototipin kullandigi feature kolon sirasi. Producer bu sirayla yazar. */
   val Columns: Vector[String] = Vector(
     "text_tokens",
     "hashtags",

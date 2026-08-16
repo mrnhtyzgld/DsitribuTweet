@@ -1,8 +1,8 @@
 # DistribuTweet Demo Guide
 
 This guide is for the final project demo. It matches the current repository
-state: the default run uses a RecSys 2021 schema-compatible synthetic tweet
-stream, and the producer can also read a compatible real TSV file with
+state: the default run uses a RecSys 2021 feature-schema-compatible synthetic
+tweet stream, and the producer can also read a compatible real TSV file with
 `--input-tsv`.
 
 ## Presenter Split
@@ -25,6 +25,10 @@ downloading the models again.
 
 ## Start The System
 
+If an older demo is already running, stop it first. In this workspace I saw old
+`distributweet-*` containers using ports `8080` and `6333`; those ports are
+needed by the current Compose file.
+
 ```bash
 docker compose up -d --build
 ```
@@ -38,7 +42,7 @@ curl http://localhost:8000/health
 ```
 
 The `data-generator` service starts automatically and publishes RecSys
-2021-style TSV records to Kafka topic `posts.raw`.
+2021-style feature TSV records to Kafka topic `posts.raw`.
 
 ## Main Demo Script
 
@@ -130,8 +134,8 @@ RecSys 2021 TSV file is available, the producer supports file replay:
 python data-generator/producer.py --input-tsv /path/to/recsys-file.tsv --total 10000 --rate 200
 ```
 
-Downstream services do not need to change, because the file mode writes the same
-twenty-column schema to Kafka.
+Downstream services do not need to change, because the parser uses the same
+feature columns and ignores additional engagement label columns when present.
 
 ## Stop And Clean Up
 

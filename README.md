@@ -11,7 +11,7 @@ Arda Onat Acar (231401010) · Nihat Emre Yüzügüldü (221401009)
 ## Mimari
 
 ```
-data-generator (Python)          RecSys 2021 şemasında TSV kayıtları
+data-generator (Python)          RecSys 2021 feature şemasında TSV kayıtları
         │
         ▼
    Kafka: posts.raw              3 partition
@@ -56,12 +56,15 @@ Proje **RecSys 2021 Challenge** (Twitter) veri setini hedefliyordu. İki engel �
 
 **Yaklaşım:** Veri setinin **şeması** referans alındı, veri sentetik olarak üretiliyor.
 
-`data-generator/generator.py`, [RecSys 2021 makalesinin Table 1](https://arxiv.org/pdf/2109.08245)
-şemasını birebir uygular:
+`data-generator/generator.py`, [RecSys 2021 makalesindeki](https://arxiv.org/pdf/2109.08245)
+tweet/user feature alanlarını temel alan bir TSV üretir:
 
-- Aynı 20 kolon, aynı sıra, TSV formatı, `0x01` liste ayracı
+- Pipeline'ın kullandığı ilk 20 feature kolonu, aynı sıra, TSV formatı,
+  `0x01` liste ayracı
 - `text_tokens` alanı **gerçek** `bert-base-multilingual-cased` token ID'leri
   içerir — sentetik metin gerçek tokenizer'dan geçirilir
+- Gerçek training TSV dosyasında ek engagement label/timestamp kolonları varsa
+  producer ve Spark parser bunları yok sayarak aynı hattı çalıştırabilir
 
 Bu sadakat sayesinde gerçek veriye erişim sağlanırsa hattın geri kalanı hiç
 değişmez; yalnızca producer dosyadan okumaya geçer:

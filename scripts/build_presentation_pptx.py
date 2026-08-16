@@ -62,7 +62,7 @@ SLIDES = [
             "Target schema: Twitter RecSys Challenge 2021.",
             "Original task: tweet engagement prediction and fairness.",
             "Tweet text is distributed as multilingual BERT token IDs.",
-            "Default demo uses schema-compatible synthetic records.",
+            "Default demo uses feature-schema-compatible synthetic records.",
             "Compatible real TSV can be replayed with --input-tsv.",
         ],
     },
@@ -70,11 +70,11 @@ SLIDES = [
         "title": "Data Generation",
         "presenter": "Presenter 1",
         "bullets": [
-            "data-generator/generator.py creates twenty-column TSV rows.",
+            "data-generator/generator.py creates RecSys-style feature TSV rows.",
             "Topic pools cover technology, sports, food, travel, finance, art, and more.",
             "text_tokens uses real bert-base-multilingual-cased token IDs.",
             "Rate and total message count are configurable.",
-            "The same downstream services consume synthetic or file-based rows.",
+            "Extra engagement label columns can be ignored by the content pipeline.",
         ],
     },
     {

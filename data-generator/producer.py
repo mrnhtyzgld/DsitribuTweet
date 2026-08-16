@@ -91,8 +91,9 @@ def run_synthetic(producer: KafkaProducer, topic: str, rate: float, total: int, 
 def run_from_file(producer: KafkaProducer, topic: str, path: str, rate: float, total: int):
     """Gercek RecSys 2021 TSV dosyasindan okur.
 
-    Sema ayni oldugu icin downstream'de hicbir degisiklik gerekmez.
-    tweet_id, Table 1'e gore 3. kolondur (0-indexed: 2).
+    Ilk feature kolonlari ayni oldugu icin downstream'de hicbir degisiklik
+    gerekmez. Gercek egitim dosyasinda ek engagement label kolonlari varsa
+    Spark parser bunlari yok sayar. tweet_id 3. kolondur (0-indexed: 2).
     """
     log.info("dosyadan okuma: %s", path)
     interval = 1.0 / rate if rate > 0 else 0.0

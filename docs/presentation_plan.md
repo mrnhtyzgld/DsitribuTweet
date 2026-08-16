@@ -114,7 +114,7 @@ On slide:
 - Target schema: Twitter RecSys Challenge 2021
 - Original task: tweet engagement prediction with fairness objectives
 - Original text field is tokenized, not plain text
-- Local submission uses schema-compatible synthetic data
+- Local submission uses feature-schema-compatible synthetic data
 - Real compatible TSV can be replayed with `--input-tsv`
 
 Transcript:
@@ -124,8 +124,9 @@ was about tweet engagement prediction and fairness-aware recommendation. A key
 detail is that tweet text is not published as ordinary plain text; it is
 represented as multilingual BERT token IDs. Since the original dataset is large
 and not shipped with this submission, our default demo generates synthetic data
-with the same twenty-column schema. If a compatible real TSV file is available,
-the producer can read it directly with `--input-tsv`.
+with the feature columns used by the pipeline. If a compatible real TSV file is
+available, the producer can read it directly with `--input-tsv`; extra
+engagement label columns are ignored by this content-based prototype.
 
 ## Slide 6 - Data Generation And Tokenization
 
@@ -136,7 +137,7 @@ Speaker: Presenter 1
 On slide:
 
 - `data-generator/generator.py`
-- Same twenty-column RecSys-style TSV shape
+- RecSys-style TSV feature columns used by the pipeline
 - Topic pools: technology, sports, food, travel, finance, art, and more
 - `text_tokens` uses real `bert-base-multilingual-cased` token IDs
 - Configurable rate and message count
@@ -144,11 +145,11 @@ On slide:
 Transcript:
 
 Our generator exists to make the system reproducible. It creates records in the
-same style as the RecSys 2021 challenge: a twenty-column TSV row with tweet
-metadata, user metadata, and tokenized text. The content is synthetic, but the
-`text_tokens` field is produced by the real multilingual BERT tokenizer. This is
-important because it means the Spark cleaner has to solve the same type of
-token-decoding problem as it would with the real dataset.
+same style as the RecSys 2021 challenge, with tweet metadata, user metadata, and
+tokenized text. The content is synthetic, but the `text_tokens` field is
+produced by the real multilingual BERT tokenizer. This is important because it
+means the Spark cleaner has to solve the same type of token-decoding problem as
+it would with the real dataset.
 
 ## Slide 7 - End-To-End Architecture
 

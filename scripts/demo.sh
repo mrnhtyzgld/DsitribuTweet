@@ -16,8 +16,8 @@ title() { printf '\n\033[1;36m%s\033[0m\n' "$1"; printf '\033[2m%s\033[0m\n' "$(
 note()  { printf '\033[2m%s\033[0m\n' "$1"; }
 
 # ---------------------------------------------------------------------------
-title "1. VERI URETIMI  —  RecSys 2021 semasinda tweet akisi"
-note "Ureteç, RecSys 2021 Challenge'in 20 kolonlu TSV semasini birebir uretir."
+title "1. VERI URETIMI  —  RecSys 2021 tarzinda tweet akisi"
+note "Uretec, hattin kullandigi RecSys-style feature kolonlarini uretir."
 note "Metin alani gercek mBERT token ID'leri icerir (gercek veri setiyle ayni)."
 echo
 docker logs data-generator 2>&1 | tail -2

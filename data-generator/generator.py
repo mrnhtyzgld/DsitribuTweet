@@ -4,9 +4,9 @@ Sema kaynagi: "The 2021 RecSys Challenge Dataset: Fairness is not optional",
 Table 1 (https://arxiv.org/pdf/2109.08245).
 
 Orijinal veri seti TSV formatindadir; liste tipindeki alanlar '\x01' ile
-ayrilir. Bu ureteç ayni formati ve ayni kolon sirasini uretir; boylece gercek
-veri sonradan bulunursa yalnizca producer'daki okuma modu degisir, hattin
-geri kalani aynen calisir.
+ayrilir. Bu uretec, bu prototipin kullandigi tweet/user feature kolonlarini
+ayni sirada uretir; gercek training TSV dosyasinda ek engagement label
+kolonlari varsa producer ve Spark parser bunlari yok sayabilir.
 
 Onemli: 'tweet tokens' alani duz metin degildir. Orijinal veri setinde metin
 bert-base-multilingual-cased tokenizer'i ile token ID listesine cevrilerek
@@ -26,7 +26,9 @@ import topics
 
 LIST_SEP = "\x01"
 
-# Table 1'deki kolon sirasi. Producer ve Spark tarafi bu sirayi paylasir.
+# Prototipin kullandigi RecSys-style feature kolonlari. Producer ve Spark
+# tarafi bu sirayi paylasir. Gercek egitim dosyasinda bundan sonra engagement
+# label/timestamp kolonlari bulunabilir; bu content-based hat onlari kullanmaz.
 COLUMNS = [
     "text_tokens",
     "hashtags",

@@ -25,7 +25,7 @@ class TsvParserSuite extends munit.FunSuite {
     cols.mkString("\t")
   }
 
-  test("sema 20 kolon icermeli (RecSys 2021 Table 1)") {
+  test("prototipin kullandigi RecSys-style feature semasi 20 kolon icermeli") {
     assertEquals(RecSysSchema.ColumnCount, 20)
   }
 
