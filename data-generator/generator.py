@@ -74,7 +74,7 @@ def _hashed(value: str) -> str:
 
 
 class TweetGenerator:
-    """RecSys 2021 semasinda TSV satirlari uretir."""
+    """RecSys 2021 feature semasinda TSV satirlari uretir."""
 
     def __init__(self, seed: int = 42, n_authors: int = 500, n_readers: int = 200):
         self.rng = random.Random(seed)

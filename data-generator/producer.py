@@ -1,7 +1,7 @@
 """Uretilen kayitlari Kafka posts.raw topic'ine yazar.
 
 Iki mod destekler:
-  - sentetik (varsayilan): generator.py ile RecSys 2021 semasinda kayit uretir
+  - sentetik (varsayilan): generator.py ile RecSys 2021 feature semasinda kayit uretir
   - --input-tsv PATH     : gercek RecSys 2021 TSV dosyasini satir satir okur
 
 Ikinci mod, veri setine erisim saglandigi durumda hattin geri kalanini hic
@@ -124,7 +124,7 @@ def run_from_file(producer: KafkaProducer, topic: str, path: str, rate: float, t
 
 
 def main():
-    parser = argparse.ArgumentParser(description="RecSys 2021 semali Kafka producer")
+    parser = argparse.ArgumentParser(description="RecSys 2021 feature semali Kafka producer")
     parser.add_argument("--input-tsv", help="Gercek RecSys 2021 TSV dosyasi (opsiyonel)")
     parser.add_argument("--rate", type=float,
                         default=float(os.getenv("RATE_PER_SEC", "20")),
