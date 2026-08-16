@@ -20,17 +20,12 @@ FROM apache/spark:3.5.4
 USER root
 WORKDIR /app
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates \
- && rm -rf /var/lib/apt/lists/*
-
 COPY --from=build /build/spark-cleaner/target/scala-2.12/spark-cleaner.jar /app/spark-cleaner.jar
 
 # mBERT vocab: token id -> token. Build sirasinda indiriliyor ki
 # calisma aninda internet gerekmesin.
-RUN curl -fsSL -o /app/vocab.txt \
-    https://huggingface.co/google-bert/bert-base-multilingual-cased/resolve/main/vocab.txt \
- && test -s /app/vocab.txt \
+ADD https://huggingface.co/google-bert/bert-base-multilingual-cased/resolve/main/vocab.txt /app/vocab.txt
+RUN test -s /app/vocab.txt \
  && echo "vocab satir sayisi: $(wc -l < /app/vocab.txt)"
 
 COPY submit.sh /app/submit.sh
