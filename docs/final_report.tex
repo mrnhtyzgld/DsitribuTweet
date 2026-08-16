@@ -1,0 +1,274 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{DistribuTweet: A Distributed Content-Based Feed Recommendation Prototype}
+
+\author{
+\IEEEauthorblockN{Arda Onat Acar}
+\IEEEauthorblockA{
+\textit{Student ID: 231401010}\\
+\textit{Department of Computer Engineering}\\
+Istanbul, T\"urkiye}
+\and
+\IEEEauthorblockN{Nihat Emre Y\"uz\"ug\"uld\"u}
+\IEEEauthorblockA{
+\textit{Student ID: 221401009}\\
+\textit{Department of Computer Engineering}\\
+Istanbul, T\"urkiye}
+}
+
+\maketitle
+
+\begin{abstract}
+Social media platforms must continuously select a small number of relevant posts from a rapidly changing content stream. Large production systems usually combine social graphs, collaborative signals, engagement prediction, freshness, and policy rules; however, these signals are difficult to reproduce in a small academic prototype. This project presents DistribuTweet, an end-to-end distributed content-based feed recommendation system that does not depend on a follow graph. Post events are replayed into Apache Kafka, cleaned with Apache Spark Structured Streaming, embedded with a multilingual E5 sentence embedding model, stored in Qdrant, and served through a Scala http4s recommendation API. User profiles are built from explicitly entered interest phrases. Feed generation retrieves semantically similar posts by cosine vector search and reranks them with a simple combination of semantic similarity, recency, and author diversity. The implementation is containerized with Docker Compose and includes Kubernetes demo manifests, a local dashboard, deterministic vector identifiers, and automated tests for the producer, stream cleaner, embedding storage, ranking, and API behavior. The resulting system demonstrates a practical small-scale architecture for semantic real-time recommendation while keeping model training, collaborative filtering, and production-scale reliability outside the initial scope.
+\end{abstract}
+
+\begin{IEEEkeywords}
+content-based recommendation, stream processing, Apache Kafka, Apache Spark, vector database, text embeddings, Qdrant, Scala, FastAPI
+\end{IEEEkeywords}
+
+\section{Introduction}
+Modern social media feeds are high-volume, time-sensitive ranking problems. A user may be interested in a narrow set of topics, while the platform continuously receives posts about technology, sports, politics, cooking, and many other subjects. If the system simply displays posts chronologically, relevant posts can be lost in the stream. If it relies only on social links, new users or users without a carefully maintained follow graph receive weak recommendations.
+
+DistribuTweet addresses this problem with a content-based approach. Instead of learning from clicks, likes, follows, or historical user-item interactions, it compares the semantic representation of user interests with the semantic representation of posts. The goal is not to build a production social network recommender, but to implement a working distributed prototype whose data path resembles a realistic streaming recommendation platform.
+
+The project makes four practical contributions. First, it implements an end-to-end pipeline from JSONL event replay to a personalized feed API. Second, it separates ingestion, cleaning, embedding, storage, and serving into independently deployable services. Third, it uses multilingual sentence embeddings so that Turkish and English texts can share the same vector index. Fourth, it exposes the internal recommendation scores in the API and dashboard, making the prototype inspectable during demonstrations.
+
+\section{Related Work}
+Content-based recommendation systems represent users and items through item attributes and recommend items similar to the user's known preferences \cite{pazzani2007content}. This is appropriate for the first version of DistribuTweet because the system can operate without collaborative user behavior. Hybrid recommender systems combine content, collaborative, and knowledge-based signals to improve coverage and quality \cite{burke2002hybrid}. Large-scale industrial recommenders often use a two-stage design in which a candidate generation model retrieves a manageable set of items and a ranking model orders them with richer features \cite{covington2016youtube}. DistribuTweet follows this two-stage idea in simplified form: Qdrant performs semantic candidate retrieval, and a lightweight rule-based ranker reranks candidates.
+
+The streaming layer is inspired by distributed log and stream processing systems. Kafka was introduced as a distributed messaging system for high-throughput log processing and supports durable publish-subscribe data pipelines \cite{kreps2011kafka}. Spark provides a unified engine for batch, interactive, and streaming computation \cite{zaharia2016spark}. In this project, Kafka decouples services and Spark Structured Streaming performs validation, filtering, deduplication, and archival of post events.
+
+Semantic retrieval depends on dense text embeddings. Sentence-BERT showed that transformer encoders can produce sentence embeddings suitable for efficient semantic similarity search \cite{reimers2019sentencebert}. The E5 embedding family further improves general-purpose text embeddings through contrastive pre-training and supervised fine-tuning \cite{wang2022e5}. DistribuTweet uses \texttt{intfloat/multilingual-e5-small}, whose technical report describes multilingual E5 models trained for multilingual retrieval tasks \cite{wang2024multilingual}. Qdrant is used as the vector database because it stores dense vectors together with JSON payloads and supports cosine similarity search over collections \cite{qdrant2026collections}. Approximate nearest neighbor systems such as HNSW show how graph-based indexing can support efficient vector retrieval at scale \cite{malkov2020hnsw}; although this prototype does not tune index internals, it uses a vector database abstraction compatible with this class of retrieval.
+
+\section{System Architecture}
+DistribuTweet is organized as a small service-oriented data pipeline. The implemented data flow is:
+
+\begin{center}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.95\linewidth}}
+\toprule
+\texttt{RecSys TSV subset converter} $\rightarrow$
+\texttt{JSONL replay source} $\rightarrow$
+\texttt{Kafka posts.raw} $\rightarrow$
+\texttt{Spark stream cleaner} $\rightarrow$
+\texttt{Kafka posts.cleaned + Parquet archive} $\rightarrow$
+\texttt{Python embedding worker} $\rightarrow$
+\texttt{Qdrant posts collection} $\rightarrow$
+\texttt{Scala recommendation API and dashboard}.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The architecture intentionally separates responsibilities. The producer only publishes events. Kafka stores the stream and decouples downstream services. Spark is responsible for data quality and streaming transformations. The embedding worker is responsible for neural inference and vector insertion. Qdrant stores vectorized posts and user profiles. The recommendation API handles profile creation, candidate retrieval, reranking, HTTP endpoints, and the browser dashboard.
+
+Table~\ref{tab:stack} summarizes the main technologies used in the implementation.
+
+\begin{table}[htbp]
+\caption{Implementation Technology Stack}
+\begin{center}
+\begin{tabular}{p{0.27\linewidth} p{0.57\linewidth}}
+\toprule
+\textbf{Component} & \textbf{Technology and Role}\\
+\midrule
+Dataset converter & Python 3.12; converts bounded RecSys 2020 TSV subsets into the internal JSONL event schema.\\
+Producer & Python 3.12, \texttt{confluent-kafka}; replays JSONL post events to Kafka with optional event limits.\\
+Messaging & Apache Kafka 3.7.0; topics \texttt{posts.raw}, \texttt{posts.cleaned}, and \texttt{recommendation.events}.\\
+Stream cleaning & Scala 2.12, Apache Spark 3.5.1 Structured Streaming; validation, filtering, deduplication, and Parquet archive output.\\
+Embedding worker & Python 3.12, FastAPI, Sentence Transformers; embeds posts and exposes \texttt{/embed}.\\
+Vector storage & Qdrant 1.11.3; stores post vectors, user vectors, and payload metadata.\\
+Recommendation API & Scala 2.13, cats-effect, http4s, Circe, sttp; serves profiles, feeds, posts, metrics, and dashboard assets.\\
+Deployment & Docker Compose for the main demo; Kubernetes manifests for a minimal cluster demo.\\
+Testing & Pytest and ScalaTest; module-level tests for ingestion, cleaning, vector payloads, ranking, and API routes.\\
+\bottomrule
+\end{tabular}
+\label{tab:stack}
+\end{center}
+\end{table}
+
+\section{Implementation Details}
+\subsection{Event Format, RecSys Adapter, and Producer}
+The input data model is a JSON event with the fields \texttt{eventId}, \texttt{postId}, \texttt{authorId}, \texttt{text}, \texttt{language}, \texttt{createdAt}, \texttt{ingestedAt}, and \texttt{source}. A JSON Schema file documents the required fields and restricts the language field to the accepted languages used by the deployed pipeline.
+
+The selected external dataset is the Twitter-sponsored ACM RecSys Challenge 2020 dataset. Its original \texttt{training.tsv} file is not already in the internal event format; it is a headerless, Ctrl-A-separated tabular file with tweet, author, reader, and engagement columns \cite{nvidia2021recsys}. Therefore, the producer package includes a RecSys 2020 adapter that converts selected rows into the project schema. The adapter maps \texttt{tweet\_id} to \texttt{postId}, \texttt{a\_user\_id} to \texttt{authorId}, Unix \texttt{timestamp} to ISO-8601 \texttt{createdAt}, and \texttt{text\_tokens}, hashtags, domains, links, and tweet type into the \texttt{text} field. If a BERT vocabulary file is available, the adapter can decode token IDs into readable token text; otherwise it still emits valid events for ingestion, streaming, and storage stress tests. It supports \texttt{--limit} and \texttt{--offset}, so local runs can process the first 10, 100, 10000, or any other bounded number of rows without changing downstream services.
+
+After conversion, the producer module reads the generated JSONL file and publishes each event to the \texttt{posts.raw} Kafka topic. It adds default values for \texttt{eventId}, \texttt{ingestedAt}, and \texttt{source} when they are missing, validates required fields, rejects empty \texttt{postId} and \texttt{text}, and uses \texttt{postId} as the Kafka message key. The producer is configurable through command line parameters and environment variables. The Docker Compose workflow can replay events at several speeds, including slow, default, fast, and burst modes.
+
+\subsection{Kafka Topics}
+Kafka is the communication backbone between services. The main topics are:
+
+\begin{itemize}
+\item \texttt{posts.raw}: raw post events produced by the replay service.
+\item \texttt{posts.cleaned}: validated and deduplicated events emitted by Spark.
+\item \texttt{recommendation.events}: reserved for future feedback or interaction events.
+\end{itemize}
+
+In Docker Compose, the post topics are created with three partitions and replication factor one. This configuration is suitable for a single-machine demo while preserving the programming model needed for multiple consumers and horizontal scaling.
+
+\subsection{Spark Stream Cleaner}
+The Spark job consumes \texttt{posts.raw}, parses Kafka message values as JSON, and applies a series of quality checks. It trims string fields, lowercases the language code, converts timestamps, rejects malformed JSON, rejects missing required fields, filters out text shorter than the configured minimum length, and keeps only accepted languages. The default configuration accepts \texttt{en} and \texttt{tr}, uses a minimum text length of 12 characters, and applies a two-hour event-time watermark.
+
+After validation, the cleaner drops duplicate posts by \texttt{postId}. The cleaned stream is written back to Kafka as compact keyed JSON on \texttt{posts.cleaned}. In parallel, the same cleaned records are archived as Parquet, partitioned by event date and hour. This archive is useful for offline inspection, replay, or future model evaluation.
+
+\subsection{Embedding Worker}
+The embedding worker has two roles. First, it is a Kafka consumer that reads \texttt{posts.cleaned}, batches messages, encodes post texts, and upserts the resulting vectors into Qdrant. Second, it exposes a FastAPI HTTP endpoint, \texttt{POST /embed}, used by the recommendation API to embed user interest phrases.
+
+The implementation uses \texttt{intfloat/multilingual-e5-small}. In the Docker Compose configuration, the vector size is 384 and the batch size is 32. Post text is encoded with the E5 \texttt{passage:} prefix, while user interest text is encoded with the \texttt{query:} prefix. Embeddings are normalized during encoding, which is appropriate for cosine similarity search. Kafka offsets are committed only after the batch has been successfully embedded and upserted. If a batch fails, offsets are not committed, allowing the messages to be retried. Qdrant writes are wrapped with exponential retry logic.
+
+\subsection{Qdrant Storage}
+Qdrant stores two collections: \texttt{posts} and \texttt{users}. The \texttt{posts} collection contains vectors for cleaned posts and payload fields such as original post ID, text, author ID, language, creation time, ISO timestamp, and source. The \texttt{users} collection stores a vector representation of each user's explicit interests and the original interest strings.
+
+Qdrant point IDs must be unsigned integers or UUIDs. The system therefore derives deterministic UUIDs from \texttt{postId} and \texttt{userId}. This design makes replay idempotent: replaying the same post updates the same Qdrant point instead of creating duplicates.
+
+\subsection{Recommendation API and Dashboard}
+The Scala recommendation API is implemented with cats-effect and http4s. It exposes:
+
+\begin{itemize}
+\item \texttt{POST /users/\{userId\}/interests}: create or update a profile from interest strings.
+\item \texttt{GET /users/\{userId\}/feed?limit=20}: return a personalized feed.
+\item \texttt{GET /posts?limit=100}: list indexed posts from Qdrant.
+\item \texttt{GET /demo/users} and \texttt{POST /demo/users}: inspect and seed demo users.
+\item \texttt{GET /health} and \texttt{GET /metrics}: basic operational endpoints.
+\end{itemize}
+
+The root endpoint serves a local browser dashboard. The dashboard shows pipeline status, indexed posts, demo users, recommendation lists, semantic scores, recency scores, final scores, and a custom user form. This interface is important for presentation because it makes the distributed backend visible without requiring manual curl commands.
+
+\section{Recommendation Method}
+\subsection{User Profile Vector}
+Each user profile is created from a list of explicit interest phrases. Empty phrases are removed. Each remaining phrase is transformed into a query text by adding the E5 \texttt{query:} prefix and is sent to the embedding worker. The API computes the arithmetic mean of the returned vectors and normalizes the result:
+
+\begin{equation}
+\mathbf{u} = \frac{\frac{1}{n}\sum_{i=1}^{n}\mathbf{e_i}}
+{\left\|\frac{1}{n}\sum_{i=1}^{n}\mathbf{e_i}\right\|_2},
+\end{equation}
+
+where \(\mathbf{e_i}\) is the embedding of interest phrase \(i\), and \(\mathbf{u}\) is the user profile vector.
+
+\subsection{Candidate Retrieval}
+For a feed request, the API retrieves the user vector from Qdrant and performs cosine similarity search against the \texttt{posts} collection. The requested feed limit is clamped between 1 and 100. The candidate limit is at least the configured candidate limit and at least five times the requested feed size. This gives the ranker enough candidates to apply freshness and diversity rules after semantic retrieval.
+
+\subsection{Reranking}
+The ranker filters posts older than the configured maximum age. The default Docker Compose value is 2160 hours, equal to 90 days. For every remaining candidate, the system computes a recency score using exponential decay:
+
+\begin{equation}
+recency(p) = e^{-\frac{ageHours(p)}{24}}.
+\end{equation}
+
+The final score combines semantic similarity, recency, and a small author diversity penalty:
+
+\begin{equation}
+score(p) = 0.85 \cdot semantic(p) + 0.15 \cdot recency(p) - penalty(p).
+\end{equation}
+
+The penalty is 0.10 if the candidate's author appears among the two most recently selected items, and 0 otherwise. This simple rule reduces consecutive recommendations from the same author while keeping semantic relevance as the dominant signal.
+
+\section{Experimental Evaluation}
+\subsection{Dataset}
+The project is designed around the Twitter-sponsored ACM RecSys Challenge 2020 dataset. The challenge focused on tweet engagement prediction in Twitter's Home Timeline and released a large public dataset of tweet, user, and engagement features from approximately two weeks of activity \cite{recsys2020challenge}. Twitter's engineering summary describes the release as 160 million public tweets for training and 40 million public tweets for validation and testing \cite{twitter2020recsys}. The original files are not included in the submitted zip because of their size and access terms. Instead, the report provides the official dataset link and the repository provides a converter that can process bounded subsets from the downloaded \texttt{training.tsv} file.
+
+For local evaluation on personal computers, the dataset is processed in subsets. For example, the same command can convert and replay the first 10, 100, or 10000 rows by changing \texttt{RECSYS\_LIMIT}. This does not change the system architecture: Kafka, Spark, the embedding worker, Qdrant, and the API receive the same event schema regardless of whether the subset contains ten rows or millions of rows. Scaling to the full dataset mainly requires more disk, memory, and compute capacity, not a different code path.
+
+The external data source link for reproducibility is:
+\url{https://www.recsyschallenge.com/2020/}.
+
+\subsection{Demo Profiles}
+The API includes five bundled demo users. For example, the \texttt{burak} profile focuses on Scala distributed systems, Spark Structured Streaming, Kafka reliability, large language model inference, and CUDA programming. Other profiles represent football and Formula 1 interests, Turkish politics, machine learning and vector retrieval, and cooking or gardening. These profiles make it possible to verify that semantically related posts are retrieved even when the wording is not identical.
+
+\subsection{Functional Results}
+The implemented system satisfies the main functional requirements of the project. Running the Docker Compose workflow starts Kafka, Qdrant, Spark, the embedding worker, and the recommendation API. The RecSys conversion command creates a JSONL subset from the downloaded dataset, and the replay command publishes that subset to \texttt{posts.raw}. Spark cleans and deduplicates the stream, writes valid records to \texttt{posts.cleaned}, and writes a Parquet archive. The embedding worker consumes the cleaned topic, creates 384-dimensional vectors, and stores them in Qdrant. The API can then seed demo user profiles and return personalized feeds.
+
+The visible result is a local dashboard at \texttt{http://localhost:8080}. The dashboard lists indexed posts, shows how many records are available, displays demo profiles, and renders recommendation cards with semantic, recency, and final scores. This confirms that the prototype is not only a set of isolated modules but an integrated end-to-end application.
+
+\subsection{Testing}
+Automated tests cover the most important module-level behavior. Python tests verify RecSys 2020 row conversion, conversion limits, optional BERT vocabulary decoding, JSONL event normalization, required-field validation, keyed Kafka replay behavior through a fake producer, deterministic post point IDs, Kafka message parsing, and Qdrant payload construction. Spark Scala tests verify malformed-event filtering, short-text filtering, unsupported-language filtering, deduplication by \texttt{postId}, and compact Kafka output generation. Recommendation API tests verify demo profile seeding, dataset limit clamping, dashboard serving, vector averaging and normalization, and ranking behavior. Ranking tests specifically verify the semantic-recency-author penalty combination and filtering of stale posts.
+
+Because the course environment uses bounded local subsets instead of the full Twitter-scale corpus, the evaluation is functional and qualitative rather than a statistical recommender benchmark. No click-through rate, mean average precision, normalized discounted cumulative gain, or online A/B test result is claimed.
+
+\section{Deployment and Reproducibility}
+The primary reproducible environment is Docker Compose. The Makefile provides commands for common operations:
+
+\begin{itemize}
+\item \texttt{make up}: build and start all core services.
+\item \texttt{make create-topics}: create Kafka topics.
+\item \texttt{make convert-recsys}: convert the first \texttt{RECSYS\_LIMIT} rows of RecSys 2020 \texttt{training.tsv} into JSONL.
+\item \texttt{make replay}: replay the converted RecSys subset into Kafka.
+\item \texttt{make seed-demo-users}: create demo user profiles.
+\item \texttt{make get-feed}: retrieve an example feed.
+\item \texttt{make test}: run Python and Scala tests.
+\end{itemize}
+
+The project also includes Dockerfiles for the producer, Spark stream processor, embedding worker, and recommendation API. The \texttt{infra/k8s} directory contains minimal Kubernetes manifests for a demo namespace, Kafka, Qdrant, embedding worker, recommendation API, configuration, and Spark submit script. The Kubernetes setup is intentionally marked as a demo target; Docker Compose remains the main evaluated environment.
+
+All project material other than external data can be submitted as a zip archive: source code, Dockerfiles, Maven and Python project files, schemas, scripts, Docker Compose configuration, Kubernetes manifests, tests, and this paper. The dataset link above is provided in the document for reproducibility.
+
+\section{Limitations}
+DistribuTweet deliberately keeps several production recommender features outside its scope. It does not yet learn from clicks, likes, dwell time, follows, reposts, or negative feedback, even though the RecSys dataset contains engagement columns that could support this in future work. It does not include collaborative filtering, graph ranking, impression history, authentication, moderation, privacy controls, or multi-tenant authorization. It does not train a custom model; instead, it uses an existing multilingual embedding model. The ranking function is transparent but simple, and its weights are hand-selected rather than learned from data. Since RecSys provides tokenized tweet text rather than ordinary raw text, semantic quality depends on using a suitable vocabulary or preprocessing step to reconstruct readable text. Finally, the current evaluation uses bounded local subsets of a large dataset, so it demonstrates system correctness and scalability of the pipeline design, not full-corpus recommendation effectiveness.
+
+\section{Conclusion and Future Work}
+This project implemented DistribuTweet, a working distributed prototype for semantic feed recommendation. Compared with the intermediate design stage, the final implementation now includes a JSONL Kafka producer, Spark Structured Streaming cleaner, Python embedding worker, Qdrant vector storage, Scala http4s recommendation API, browser dashboard, Docker Compose environment, Kubernetes demo manifests, deterministic vector IDs, demo profiles, and automated tests.
+
+The system shows that a content-based semantic recommender can be built from modular distributed components without relying on a follow graph or historical collaborative data. Kafka and Spark provide a scalable streaming path, the multilingual E5 model provides cross-language semantic representation, Qdrant provides vector retrieval, and the Scala API provides profile management and feed serving.
+
+Future work should add implicit feedback events, impression history, learned ranking, stronger diversity constraints, language-aware filtering, moderation checks, full-corpus RecSys runs, latency measurements, Kafka lag monitoring, and multi-replica deployment tests. A natural next step is to use the reserved \texttt{recommendation.events} topic and the RecSys engagement columns to train or tune a ranking model that combines semantic similarity with observed user behavior.
+
+\section*{Acknowledgment}
+This project was developed as a course project by Arda Onat Acar and Nihat Emre Y\"uz\"ug\"uld\"u.
+
+\begin{thebibliography}{00}
+\bibitem{pazzani2007content}
+M. J. Pazzani and D. Billsus, ``Content-based recommendation systems,'' in \textit{The Adaptive Web: Methods and Strategies of Web Personalization}, P. Brusilovsky, A. Kobsa, and W. Nejdl, Eds. Berlin, Germany: Springer, 2007, pp. 325--341.
+
+\bibitem{burke2002hybrid}
+R. Burke, ``Hybrid recommender systems: Survey and experiments,'' \textit{User Modeling and User-Adapted Interaction}, vol. 12, no. 4, pp. 331--370, 2002.
+
+\bibitem{covington2016youtube}
+P. Covington, J. Adams, and E. Sargin, ``Deep neural networks for YouTube recommendations,'' in \textit{Proc. 10th ACM Conf. Recommender Systems}, 2016, pp. 191--198.
+
+\bibitem{kreps2011kafka}
+J. Kreps, N. Narkhede, and J. Rao, ``Kafka: A distributed messaging system for log processing,'' in \textit{Proc. NetDB}, 2011.
+
+\bibitem{zaharia2016spark}
+M. Zaharia \textit{et al.}, ``Apache Spark: A unified engine for big data processing,'' \textit{Communications of the ACM}, vol. 59, no. 11, pp. 56--65, 2016.
+
+\bibitem{reimers2019sentencebert}
+N. Reimers and I. Gurevych, ``Sentence-BERT: Sentence embeddings using Siamese BERT-networks,'' in \textit{Proc. Conf. Empirical Methods in Natural Language Processing}, 2019.
+
+\bibitem{wang2022e5}
+L. Wang, N. Yang, X. Huang, B. Jiao, L. Yang, D. Jiang, R. Majumder, and F. Wei, ``Text embeddings by weakly-supervised contrastive pre-training,'' \textit{arXiv preprint arXiv:2212.03533}, 2022.
+
+\bibitem{wang2024multilingual}
+L. Wang, N. Yang, X. Huang, L. Yang, R. Majumder, and F. Wei, ``Multilingual E5 text embeddings: A technical report,'' \textit{arXiv preprint arXiv:2402.05672}, 2024.
+
+\bibitem{qdrant2026collections}
+Qdrant, ``Collections,'' Qdrant documentation. [Online]. Available: \url{https://qdrant.tech/documentation/manage-data/collections/}. Accessed: Aug. 16, 2026.
+
+\bibitem{malkov2020hnsw}
+Y. A. Malkov and D. A. Yashunin, ``Efficient and robust approximate nearest neighbor search using hierarchical navigable small world graphs,'' \textit{IEEE Transactions on Pattern Analysis and Machine Intelligence}, vol. 42, no. 4, pp. 824--836, 2020.
+
+\bibitem{recsys2020challenge}
+ACM RecSys, ``RecSys Challenge 2020,'' 2020. [Online]. Available: \url{https://www.recsyschallenge.com/2020/}. Accessed: Aug. 16, 2026.
+
+\bibitem{twitter2020recsys}
+Twitter Engineering, ``What Twitter learned from the RecSys 2020 Challenge,'' 2020. [Online]. Available: \url{https://blog.x.com/engineering/en_us/topics/insights/2020/what_twitter_learned_from_recsys2020}. Accessed: Aug. 16, 2026.
+
+\bibitem{nvidia2021recsys}
+NVIDIA Merlin, ``NVTabular demo on RecSys2020 Challenge,'' 2021. [Online]. Available: \url{https://nvidia-merlin.github.io/NVTabular/v0.5.3/examples/winning-solution-recsys2020-twitter/01-02-04-Download-Convert-ETL-with-NVTabular-Training-with-XGBoost.html}. Accessed: Aug. 16, 2026.
+\end{thebibliography}
+
+\end{document}

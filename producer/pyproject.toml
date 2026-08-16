@@ -18,6 +18,7 @@ dev = [
 
 [project.scripts]
 distributweet-replay = "producer.replay:main"
+distributweet-recsys2020-to-jsonl = "producer.recsys2020:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,11 +1,13 @@
 # DistribuTweet
 
-DistribuTweet is a small end-to-end content-based recommendation system. It ingests live-like post events through Kafka, cleans them with Spark Structured Streaming, embeds cleaned text with `intfloat/multilingual-e5-small`, stores vectors in Qdrant, and serves personalized feeds through a Scala http4s API.
+DistribuTweet is a small end-to-end content-based recommendation system. It converts bounded subsets of the Twitter-sponsored ACM RecSys Challenge 2020 dataset into replayable post events, ingests them through Kafka, cleans them with Spark Structured Streaming, embeds cleaned text with `intfloat/multilingual-e5-small`, stores vectors in Qdrant, and serves personalized feeds through a Scala http4s API.
 
 ## Architecture
 
 ```text
-JSONL replay / Jetstream-compatible source
+RecSys 2020 TSV subset
+        -> JSONL converter
+        -> JSONL replay
         -> Kafka posts.raw
         -> Scala Spark stream processor
         -> Kafka posts.cleaned + Parquet archive
@@ -21,10 +23,16 @@ The first version is intentionally content-based only. It does not use a follow 
 ```bash
 make up
 make create-topics
+make convert-recsys RECSYS_FILE=./data/recsys2020/training.tsv RECSYS_LIMIT=100
 make replay
 make seed-demo-users
 make get-feed
 ```
+
+The full RecSys dataset is not downloaded automatically. Put the downloaded
+`training.tsv` under `data/recsys2020/training.tsv`, then choose a bounded
+`RECSYS_LIMIT` for local runs. Use `make replay-sample` only for the tiny bundled
+smoke-test dataset.
 
 Open the local dashboard:
 
@@ -72,6 +80,25 @@ Run Scala tests in Docker:
 ```bash
 make test-scala
 ```
+
+## RecSys 2020 Data
+
+The full Twitter-sponsored ACM RecSys Challenge 2020 dataset is not stored in
+this repository. After downloading `training.tsv` from the challenge site, a
+bounded subset can be converted into the internal JSONL event format and replayed
+through the same Kafka pipeline:
+
+```bash
+make convert-recsys RECSYS_FILE=./data/recsys2020/training.tsv RECSYS_LIMIT=10000
+make replay
+```
+
+Use smaller values such as `RECSYS_LIMIT=10` or `RECSYS_LIMIT=100` for quick
+local checks. The converter reads the original Ctrl-A-separated TSV format and
+maps each row to the project event schema. If a BERT `vocab.txt` is available,
+pass `RECSYS_VOCAB=./data/recsys2020/vocab.txt` so the converter can decode the
+`text_tokens` field. Otherwise it still produces valid events for pipeline
+stress tests.
 
 ## Qdrant point IDs
 

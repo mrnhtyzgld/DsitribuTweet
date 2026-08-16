@@ -1,9 +1,14 @@
 DOCKER ?= /usr/bin/docker
 COMPOSE ?= $(DOCKER) compose
 USER_ID ?= burak
-REPLAY_FILE ?= /sample-data/posts.jsonl
+REPLAY_FILE ?= /data/recsys2020/posts.jsonl
+SAMPLE_REPLAY_FILE ?= /sample-data/posts.jsonl
+RECSYS_FILE ?= ./data/recsys2020/training.tsv
+RECSYS_LIMIT ?= 10000
+RECSYS_JSONL ?= ./data/recsys2020/posts.jsonl
+RECSYS_VOCAB ?=
 
-.PHONY: up down logs create-topics replay replay-slow replay-fast replay-burst create-profile seed-demo-users get-feed ui test test-python test-scala build clean
+.PHONY: up down logs create-topics replay replay-slow replay-fast replay-burst replay-sample convert-recsys replay-recsys demo-recsys create-profile seed-demo-users get-feed ui test test-python test-scala build clean
 
 up:
 	$(COMPOSE) up --build -d
@@ -28,6 +33,18 @@ replay-fast:
 
 replay-burst:
 	$(COMPOSE) run --rm producer --file $(REPLAY_FILE) --events-per-second 500
+
+replay-sample:
+	$(COMPOSE) run --rm producer --file $(SAMPLE_REPLAY_FILE) --events-per-second 10
+
+convert-recsys:
+	mkdir -p $$(dirname "$(RECSYS_JSONL)")
+	PYTHONPATH=producer/src python3 -m producer.recsys2020 --input "$(RECSYS_FILE)" --output "$(RECSYS_JSONL)" --limit "$(RECSYS_LIMIT)" $(if $(RECSYS_VOCAB),--bert-vocab "$(RECSYS_VOCAB)",)
+
+replay-recsys:
+	$(COMPOSE) run --rm producer --file $(REPLAY_FILE) --events-per-second 50
+
+demo-recsys: up create-topics convert-recsys replay-recsys seed-demo-users get-feed
 
 create-profile:
 	curl -sS -X POST "http://localhost:8080/users/$(USER_ID)/interests" \
