@@ -3,6 +3,7 @@ target/
 .bsp/
 .bloop/
 .metals/
+.m2/
 
 # Python
 __pycache__/
