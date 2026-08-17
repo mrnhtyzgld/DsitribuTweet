@@ -8,6 +8,13 @@ set -uo pipefail
 # Git Bash (Windows) '/opt/...' yollarini Windows yoluna cevirir -> kapat
 export MSYS_NO_PATHCONV=1
 
+# Bu makinede calisan demo container'lari system Docker daemon uzerinde.
+# Docker Desktop context'i acik kalirsa CLI bos ortam gosterebilir.
+if [ -S /var/run/docker.sock ] && [ -z "${DOCKER_HOST:-}" ]; then
+  unset DOCKER_CONTEXT || true
+  export DOCKER_HOST=unix:///var/run/docker.sock
+fi
+
 blue() { printf '\n\033[1;34m%s\033[0m\n' "$1"; }
 dim()  { printf '\033[2m%s\033[0m\n' "$1"; }
 

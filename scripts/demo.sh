@@ -8,6 +8,14 @@
 set -uo pipefail
 
 export MSYS_NO_PATHCONV=1
+
+# Bu makinede calisan demo container'lari system Docker daemon uzerinde.
+# Docker Desktop context'i acik kalirsa CLI bos ortam gosterebilir.
+if [ -S /var/run/docker.sock ] && [ -z "${DOCKER_HOST:-}" ]; then
+  unset DOCKER_CONTEXT || true
+  export DOCKER_HOST=unix:///var/run/docker.sock
+fi
+
 API="${API:-http://localhost:8081}"
 QDRANT="${QDRANT:-http://localhost:6333}"
 KAFKA_BIN=/opt/kafka/bin
@@ -15,12 +23,19 @@ KAFKA_BIN=/opt/kafka/bin
 title() { printf '\n\033[1;36m%s\033[0m\n' "$1"; printf '\033[2m%s\033[0m\n' "$(printf '─%.0s' {1..70})"; }
 note()  { printf '\033[2m%s\033[0m\n' "$1"; }
 
+if ! docker ps >/dev/null 2>&1; then
+  echo "Docker'a erisilemiyor. Once Docker daemon'in calistigindan emin olun."
+  exit 1
+fi
+
 # ---------------------------------------------------------------------------
-title "1. VERI URETIMI  —  Bright Data Twitter/X sample"
-note "Producer, public 1000 post CSV sample'ini ic TSV feature formatina cevirir."
-note "Description metni mBERT token ID'lerine cevrilir; Spark bu tokenlari decode eder."
+title "1. VERI REPLAY  —  Bright Data Twitter/X sample"
+note "Kaynak CSV 1000 public post satiri icerir; demoda hiz icin sinirli subset indekslenir."
+note "Producer CSV satirlarini pipeline'in ortak tweet event semasina cevirip Kafka'ya yollar."
 echo
-docker logs data-generator 2>&1 | tail -2
+docker logs data-generator 2>&1 \
+  | grep -E "Bright Data|Kafka|gonderildi|toplam|sent|published|replay" \
+  | tail -5 || docker logs data-generator 2>&1 | tail -3
 
 # ---------------------------------------------------------------------------
 title "2. KAFKA  —  posts.raw topic'i 3 partition'a dagilmis"
@@ -34,6 +49,12 @@ docker exec kafka $KAFKA_BIN/kafka-get-offsets.sh \
 title "3. SPARK  —  temizleme + token decode + tekrar eleme"
 note "TSV parse -> zorunlu alan kontrolu -> mBERT token'lari metne cevir -> dedup"
 echo
+echo "   posts.cleaned topic sayimi:"
+docker exec kafka $KAFKA_BIN/kafka-get-offsets.sh \
+  --bootstrap-server localhost:9092 --topic posts.cleaned 2>/dev/null \
+  | awk -F: '{printf "   partition %s: %s mesaj\n", $2, $3; t+=$3} END {printf "   ----------------------\n   TOPLAM     : %d mesaj\n", t}'
+echo
+echo "   son Spark cleaner loglari:"
 docker logs spark-cleaner 2>&1 | grep "\[cleaner\]" | tail -3
 
 # ---------------------------------------------------------------------------

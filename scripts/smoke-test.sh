@@ -9,6 +9,14 @@ QDRANT="${QDRANT:-http://localhost:6333}"
 
 # Git Bash (Windows) '/opt/...' yollarini Windows yoluna cevirir -> kapat
 export MSYS_NO_PATHCONV=1
+
+# Bu makinede calisan demo container'lari system Docker daemon uzerinde.
+# Docker Desktop context'i acik kalirsa CLI bos ortam gosterebilir.
+if [ -S /var/run/docker.sock ] && [ -z "${DOCKER_HOST:-}" ]; then
+  unset DOCKER_CONTEXT || true
+  export DOCKER_HOST=unix:///var/run/docker.sock
+fi
+
 KAFKA_BIN=/opt/kafka/bin
 KAFKA_EXEC="docker exec kafka"
 
