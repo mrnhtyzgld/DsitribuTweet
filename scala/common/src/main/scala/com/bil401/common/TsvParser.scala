@@ -1,6 +1,6 @@
 package com.bil401.common
 
-/** RecSys 2021 TSV satirlarini parse eder ve zorunlu alan kontrolu yapar.
+/** Ic tweet feature TSV satirlarini parse eder ve zorunlu alan kontrolu yapar.
   *
   * Spark job'indan ayri tutuluyor ki Spark ayaga kaldirmadan test edilebilsin.
   */
@@ -16,46 +16,46 @@ object TsvParser {
     // limit = -1 sart: varsayilan split sondaki bos alanlari atar ve
     // son kolonlari bos olan gecerli kayitlar "eksik kolon" diye reddedilir.
     val cols = line.split("\t", -1)
-    if (cols.length < RecSysSchema.ColumnCount) {
-      return Left(s"eksik kolon: ${cols.length} < ${RecSysSchema.ColumnCount}")
+    if (cols.length < TweetFeatureSchema.ColumnCount) {
+      return Left(s"eksik kolon: ${cols.length} < ${TweetFeatureSchema.ColumnCount}")
     }
 
-    val tweetId = cols(RecSysSchema.IdxTweetId).trim
+    val tweetId = cols(TweetFeatureSchema.IdxTweetId).trim
     if (tweetId.isEmpty) return Left("tweet_id bos")
 
-    val tokensRaw = cols(RecSysSchema.IdxTextTokens).trim
+    val tokensRaw = cols(TweetFeatureSchema.IdxTextTokens).trim
     if (tokensRaw.isEmpty) return Left("text_tokens bos")
 
     val tokens =
       try {
-        tokensRaw.split(RecSysSchema.ListSep).filter(_.nonEmpty).map(_.trim.toInt)
+        tokensRaw.split(TweetFeatureSchema.ListSep).filter(_.nonEmpty).map(_.trim.toInt)
       } catch {
         case _: NumberFormatException => return Left("text_tokens sayisal degil")
       }
     if (tokens.isEmpty) return Left("text_tokens bos liste")
 
-    val language = cols(RecSysSchema.IdxLanguage).trim
+    val language = cols(TweetFeatureSchema.IdxLanguage).trim
     if (language.isEmpty) return Left("language bos")
 
     val timestamp =
-      try cols(RecSysSchema.IdxTweetTimestamp).trim.toLong
+      try cols(TweetFeatureSchema.IdxTweetTimestamp).trim.toLong
       catch { case _: NumberFormatException => return Left("tweet_timestamp gecersiz") }
     if (timestamp <= 0) return Left("tweet_timestamp pozitif olmali")
 
     val followers =
-      try cols(RecSysSchema.IdxAuthorFollowers).trim.toLong
+      try cols(TweetFeatureSchema.IdxAuthorFollowers).trim.toLong
       catch { case _: NumberFormatException => 0L }
 
     Right(
       RawPost(
         tweetId = tweetId,
         textTokens = tokens,
-        hashtags = splitList(cols(RecSysSchema.IdxHashtags)),
-        presentMedia = splitList(cols(RecSysSchema.IdxPresentMedia)),
-        tweetType = cols(RecSysSchema.IdxTweetType).trim,
+        hashtags = splitList(cols(TweetFeatureSchema.IdxHashtags)),
+        presentMedia = splitList(cols(TweetFeatureSchema.IdxPresentMedia)),
+        tweetType = cols(TweetFeatureSchema.IdxTweetType).trim,
         language = language,
         tweetTimestamp = timestamp,
-        authorId = cols(RecSysSchema.IdxAuthorId).trim,
+        authorId = cols(TweetFeatureSchema.IdxAuthorId).trim,
         authorFollowerCount = followers
       )
     )
@@ -64,7 +64,7 @@ object TsvParser {
   private def splitList(raw: String): Array[String] = {
     val v = if (raw == null) "" else raw.trim
     if (v.isEmpty) Array.empty
-    else v.split(RecSysSchema.ListSep).filter(_.nonEmpty)
+    else v.split(TweetFeatureSchema.ListSep).filter(_.nonEmpty)
   }
 
   /** Parse edilmis kaydi, metni cozulmus hale getirir. */

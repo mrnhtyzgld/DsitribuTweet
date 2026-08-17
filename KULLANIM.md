@@ -61,7 +61,10 @@ docker compose up -d --build
 ```
 
 Bu 10-15 dakika sürer: Scala derlenir, embedding modeli (~470 MB) indirilir.
-Sonraki başlatmalar saniyeler sürer ve **internet gerektirmez**.
+Sonraki başlatmalar genelde saniyeler sürer. Varsayılan akış Bright Data
+Twitter/X örnek CSV'sini GitHub'dan okuduğu için veri replay anında internet
+gerekebilir; internet istemiyorsan CSV'yi lokalde tutup `INPUT_CSV` ile dosya
+yolunu verebilirsin.
 
 ### Hazır olduğunu anla
 
@@ -69,7 +72,9 @@ Sonraki başlatmalar saniyeler sürer ve **internet gerektirmez**.
 docker compose ps
 ```
 
-11 satır görmelisin, hepsinde `Up` yazmalı. Bazılarında `(healthy)` de yazar.
+Servisleri listede görmelisin. Sürekli çalışan servislerde `Up` yazmalı;
+`data-generator` tek seferlik 1000 post replay ettiği için işini bitirdikten
+sonra `Exited (0)` görünmesi normaldir. Bazılarında `(healthy)` de yazar.
 
 Servisler sırayla başlar (Kafka → Spark → worker'lar), hepsinin hazır olması
 **yaklaşık 1-2 dakika** sürer. Hemen `demo.sh` çalıştırırsan boş sonuç
@@ -81,7 +86,8 @@ Veri akmaya başladı mı kontrolü:
 docker compose logs --tail 3 data-generator
 ```
 
-`gonderildi: ... kayit` satırları görüyorsan üretim başlamış.
+`gonderildi: ... kayit` satırları görüyorsan Bright Data örnek postları Kafka'ya
+replay edilmeye başlamış.
 
 ---
 
@@ -140,7 +146,7 @@ Ne zaman kullanmalı:
 ./scripts/demo.sh
 ```
 
-Sistemin ne yaptığını 6 adımda anlatır: veri üretimi → Kafka → Spark →
+Sistemin ne yaptığını 6 adımda anlatır: veri replay → Kafka → Spark →
 embedding → Qdrant → öneri. En altta üç farklı kullanıcı için feed örneği
 gösterir.
 
@@ -167,7 +173,7 @@ Sistem çalışırken bu adresleri aç:
 
 ```bash
 # 1) Kendini tanıt
-curl -X POST localhost:8081/users/arda/interests -H 'Content-Type: application/json' -d '{"interests":["muzik dinlemek","gitar calmak"]}'
+curl -X POST localhost:8081/users/arda/interests -H 'Content-Type: application/json' -d '{"interests":["Gaza ceasefire","Palestine solidarity","human rights"]}'
 
 # 2) Feed'ini al
 curl 'localhost:8081/users/arda/feed?limit=10'

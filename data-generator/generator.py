@@ -1,17 +1,15 @@
-"""RecSys 2021 Challenge sema uyumlu sentetik tweet ureteci.
+"""Ic tweet feature semasina uyumlu sentetik tweet ureteci.
 
-Sema kaynagi: "The 2021 RecSys Challenge Dataset: Fairness is not optional",
-Table 1 (https://arxiv.org/pdf/2109.08245).
+Varsayilan demo akisi Bright Data Twitter/X CSV sample'ini kullanir. Bu modul
+yalnizca internet veya CSV dosyasi yokken yedek veri uretimi ve testler icin
+tutulur.
 
-Orijinal veri seti TSV formatindadir; liste tipindeki alanlar '\x01' ile
-ayrilir. Bu uretec, bu prototipin kullandigi tweet/user feature kolonlarini
-ayni sirada uretir; gercek training TSV dosyasinda ek engagement label
-kolonlari varsa producer ve Spark parser bunlari yok sayabilir.
+Ic TSV formatinda liste tipindeki alanlar '\x01' ile ayrilir. Bu uretec,
+prototipin kullandigi tweet/user feature kolonlarini ayni sirada uretir.
 
-Onemli: 'tweet tokens' alani duz metin degildir. Orijinal veri setinde metin
-bert-base-multilingual-cased tokenizer'i ile token ID listesine cevrilerek
-yayinlanmistir. Bu ureteç de ayni tokenizer'i kullanarak GERCEK token ID'leri
-uretir -- boylece downstream'deki decode adimi gercek veriyle ayni kodu calistirir.
+Onemli: 'tweet tokens' alani duz metin degildir. Metin
+bert-base-multilingual-cased tokenizer'i ile token ID listesine cevrilir;
+Spark cleaner da bu token ID'leri tekrar metne cevirir.
 """
 
 import hashlib
@@ -20,37 +18,10 @@ import time
 
 from transformers import BertTokenizerFast
 
+from schema import COLUMNS, LIST_SEP
 import topics
 
-# --- RecSys 2021 sema sabitleri ---------------------------------------------
-
-LIST_SEP = "\x01"
-
-# Prototipin kullandigi RecSys-style feature kolonlari. Producer ve Spark
-# tarafi bu sirayi paylasir. Gercek egitim dosyasinda bundan sonra engagement
-# label/timestamp kolonlari bulunabilir; bu content-based hat onlari kullanmaz.
-COLUMNS = [
-    "text_tokens",
-    "hashtags",
-    "tweet_id",
-    "present_media",
-    "present_links",
-    "present_domains",
-    "tweet_type",
-    "language",
-    "tweet_timestamp",
-    "engaged_with_user_id",
-    "engaged_with_user_follower_count",
-    "engaged_with_user_following_count",
-    "engaged_with_user_is_verified",
-    "engaged_with_user_account_creation",
-    "engaging_user_id",
-    "engaging_user_follower_count",
-    "engaging_user_following_count",
-    "engaging_user_is_verified",
-    "engaging_user_account_creation",
-    "engagee_follows_engager",
-]
+# --- Ic tweet feature sema sabitleri -----------------------------------------
 
 TWEET_TYPES = ["Retweet", "Quote", "Reply", "TopLevel"]
 MEDIA_TYPES = ["Photo", "Video", "Gif"]
@@ -74,7 +45,7 @@ def _hashed(value: str) -> str:
 
 
 class TweetGenerator:
-    """RecSys 2021 feature semasinda TSV satirlari uretir."""
+    """Ic tweet feature semasinda TSV satirlari uretir."""
 
     def __init__(self, seed: int = 42, n_authors: int = 500, n_readers: int = 200):
         self.rng = random.Random(seed)

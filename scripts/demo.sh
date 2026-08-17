@@ -16,9 +16,9 @@ title() { printf '\n\033[1;36m%s\033[0m\n' "$1"; printf '\033[2m%s\033[0m\n' "$(
 note()  { printf '\033[2m%s\033[0m\n' "$1"; }
 
 # ---------------------------------------------------------------------------
-title "1. VERI URETIMI  —  RecSys 2021 tarzinda tweet akisi"
-note "Uretec, hattin kullandigi RecSys-style feature kolonlarini uretir."
-note "Metin alani gercek mBERT token ID'leri icerir (gercek veri setiyle ayni)."
+title "1. VERI URETIMI  —  Bright Data Twitter/X sample"
+note "Producer, public 1000 post CSV sample'ini ic TSV feature formatina cevirir."
+note "Description metni mBERT token ID'lerine cevrilir; Spark bu tokenlari decode eder."
 echo
 docker logs data-generator 2>&1 | tail -2
 
@@ -85,13 +85,16 @@ except Exception as e:
 "
 }
 
-demo_user "demo-tech"  "GPU programlama, dagitik sistemler"  "GPU programlama" "dagitik sistemler"
-demo_user "demo-food"  "yemek tarifleri, kahve demleme"      "yemek tarifleri" "kahve demleme"
-demo_user "demo-sport" "maraton antrenmani, basketbol"       "maraton antrenmani" "basketbol"
+demo_user "demo-palestine"  "Gaza ceasefire, Palestine solidarity" \
+  "Gaza ceasefire" "Palestine solidarity" "human rights"
+demo_user "demo-climate"    "COP28 climate negotiations, sustainability" \
+  "COP28 climate negotiations" "environment policy" "sustainability"
+demo_user "demo-students"   "student protests, university activism" \
+  "student protests" "university activism" "campus demonstration"
 
 echo
-note "Dikkat: sorgu Turkce ama sonuclar Almanca/Ingilizce/Fransizca da olabilir."
-note "Cok dilli embedding modeli anlami yakaliyor, kelimeleri degil."
+note "Dikkat: sample dengeli degil; politik, iklim ve ogrenci hareketi icerikleri baskin."
+note "Cok dilli embedding modeli anlami yakaliyor, yalnizca birebir kelime aramiyor."
 
 # ---------------------------------------------------------------------------
 title "ARAYUZLER"

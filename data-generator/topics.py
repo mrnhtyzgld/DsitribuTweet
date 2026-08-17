@@ -10,8 +10,7 @@ icin tutulur.
 
 import random
 
-# RecSys 2021 veri setindeki language alani hash'lenmis kimliklerdir.
-# Burada okunabilirlik icin ISO kodlari kullaniyoruz.
+# Sentetik yedek uretimde okunabilirlik icin ISO kodlari kullaniyoruz.
 LANGUAGES = ["tr", "en", "de", "fr"]
 
 # konu -> dil -> cumle parcalari

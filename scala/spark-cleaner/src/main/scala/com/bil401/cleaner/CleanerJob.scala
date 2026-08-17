@@ -29,7 +29,7 @@ object CleanerJob {
 
     val spark = SparkSession
       .builder()
-      .appName("tweet-recsys-cleaner")
+      .appName("distributweet-cleaner")
       // Kucuk demo veri seti icin 200 shuffle partition asiri; 6 yeterli
       // (2 worker x 2 core = 4 slot)
       .config("spark.sql.shuffle.partitions", "6")

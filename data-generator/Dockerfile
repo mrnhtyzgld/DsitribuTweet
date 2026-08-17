@@ -14,6 +14,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN python -c "from transformers import BertTokenizerFast; \
     BertTokenizerFast.from_pretrained('bert-base-multilingual-cased')"
 
-COPY topics.py generator.py producer.py ./
+COPY schema.py topics.py generator.py brightdata.py producer.py ./
 
 CMD ["python", "producer.py"]

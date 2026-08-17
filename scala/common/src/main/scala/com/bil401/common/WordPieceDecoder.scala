@@ -4,11 +4,10 @@ import scala.io.Source
 
 /** mBERT token ID'lerini tekrar metne cevirir.
   *
-  * RecSys 2021 veri setinde tweet metni duz metin olarak degil,
-  * bert-base-multilingual-cased tokenizer'inin urettigi token ID listesi
-  * olarak yayinlanmistir (gizlilik gerekcesiyle). Embedding asamasinda
-  * anlamli bir metne ihtiyacimiz var, cunku kullanici ilgi alanlari duz
-  * metin olarak geliyor ve ikisinin ayni vektor uzayini paylasmasi gerekiyor.
+  * Data generator Bright Data metinlerini bert-base-multilingual-cased
+  * tokenizer'inin urettigi token ID listesine cevirir. Embedding asamasinda
+  * anlamli bir metne ihtiyacimiz var, cunku kullanici ilgi alanlari duz metin
+  * olarak geliyor ve ikisinin ayni vektor uzayini paylasmasi gerekiyor.
   *
   * JVM tarafinda Python tokenizer'i calistirmak yerine vocab.txt'ten
   * id -> token haritasi kurup WordPiece birlestirmesini kendimiz yapiyoruz.

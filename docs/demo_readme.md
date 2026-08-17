@@ -1,9 +1,10 @@
 # DistribuTweet Demo Guide
 
 This guide is for the final project demo. It matches the current repository
-state: the default run uses a RecSys 2021 feature-schema-compatible synthetic
-tweet stream, and the producer can also read a compatible real TSV file with
-`--input-tsv`.
+state: the default run reads the public Bright Data Twitter/X 1000-post CSV
+sample, converts it into the internal stream format, and publishes it to Kafka.
+The producer can also read a local CSV file or an already converted internal TSV
+file.
 
 ## Presenter Split
 
@@ -19,9 +20,12 @@ the live demo commands.
 - Around 6 GB free memory
 - Internet access for the first build, because the Docker images download Scala
   dependencies, the MiniLM embedding model, and the multilingual BERT vocabulary
+- Internet access during default replay, because `data-generator` reads the
+  Bright Data sample from GitHub raw unless `INPUT_CSV` points to a local file
 
-After the first successful build, the main demo can be restarted locally without
-downloading the models again.
+After the first successful build, the models are cached in Docker layers. For a
+fully offline demo, download the CSV sample beforehand and set `INPUT_CSV` to the
+local file path.
 
 ## Start The System
 
@@ -41,8 +45,13 @@ curl http://localhost:8081/health
 curl http://localhost:8000/health
 ```
 
-The `data-generator` service starts automatically and publishes RecSys
-2021-style feature TSV records to Kafka topic `posts.raw`.
+The `data-generator` service starts automatically, reads:
+
+```text
+https://raw.githubusercontent.com/luminati-io/Twitter-X-dataset-samples/main/twitter-posts.csv
+```
+
+and publishes the first 1000 converted tweet records to Kafka topic `posts.raw`.
 
 ## Main Demo Script
 
@@ -54,7 +63,7 @@ Run:
 
 The script shows:
 
-- generated RecSys-style tweet stream
+- Bright Data Twitter/X sample replay
 - Kafka `posts.raw` partition counts
 - Spark cleaner logs
 - embedding worker consumer-group distribution
@@ -103,7 +112,7 @@ Create a user profile:
 ```bash
 curl -X POST localhost:8081/users/demo-user/interests \
   -H 'Content-Type: application/json' \
-  -d '{"interests":["GPU programming","distributed systems","Kafka streaming"]}'
+  -d '{"interests":["Gaza ceasefire","Palestine solidarity","human rights"]}'
 ```
 
 Fetch a personalized feed:
@@ -125,17 +134,34 @@ ranking can be explained during the demo.
 | Qdrant dashboard | `http://localhost:6333/dashboard` |
 | Embedding service health | `http://localhost:8000/health` |
 
-## Optional Real RecSys TSV Mode
+## Dataset Modes
 
-The default Docker Compose run uses the synthetic generator. If a compatible
-RecSys 2021 TSV file is available, the producer supports file replay:
+Default Compose mode uses the public Bright Data sample URL:
 
 ```bash
-python data-generator/producer.py --input-tsv /path/to/recsys-file.tsv --total 10000 --rate 200
+docker compose up -d --build
 ```
 
-Downstream services do not need to change, because the parser uses the same
-feature columns and ignores additional engagement label columns when present.
+To process only the first 10 or 100 rows, override `TOTAL_MESSAGES`:
+
+```bash
+TOTAL_MESSAGES=100 docker compose up -d --build
+```
+
+To replay a local Bright Data CSV file:
+
+```bash
+python data-generator/producer.py --input-csv /path/to/twitter-posts.csv --total 1000 --rate 100
+```
+
+To replay an already converted internal TSV file:
+
+```bash
+python data-generator/producer.py --input-tsv /path/to/internal-feature.tsv --total 10000 --rate 200
+```
+
+Downstream services do not need to change in any mode, because Kafka receives
+the same internal feature schema.
 
 ## Stop And Clean Up
 

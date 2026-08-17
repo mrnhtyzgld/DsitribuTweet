@@ -92,10 +92,10 @@ else
   red   "  [HATA] /health yanit vermiyor"; FAIL=$((FAIL+1))
 fi
 
-# Teknoloji ilgi alanlari
-resp=$(curl -s -X POST "$API/users/test-tech/interests" \
+# Sample icinde belirgin karsiligi olan ilgi alanlari
+resp=$(curl -s -X POST "$API/users/test-palestine/interests" \
   -H 'Content-Type: application/json' \
-  -d '{"interests":["GPU programlama","dagitik sistemler","Kafka stream isleme"]}' 2>/dev/null)
+  -d '{"interests":["Gaza ceasefire","Palestine solidarity","human rights"]}' 2>/dev/null)
 
 if echo "$resp" | grep -q '"vectorDim":384'; then
   green "  [OK]   profil vektoru olusturuldu (384 boyut)"; PASS=$((PASS+1))
@@ -103,7 +103,7 @@ else
   red   "  [HATA] profil olusturulamadi: $resp"; FAIL=$((FAIL+1))
 fi
 
-feed=$(curl -s "$API/users/test-tech/feed?limit=5" 2>/dev/null)
+feed=$(curl -s "$API/users/test-palestine/feed?limit=5" 2>/dev/null)
 count=$(echo "$feed" | grep -o '"count":[0-9]*' | head -1 | cut -d: -f2)
 
 if [ "${count:-0}" -gt 0 ]; then
@@ -114,7 +114,7 @@ fi
 
 blue ""
 blue "=== 6. Anlamsal eslesme kalitesi ==="
-echo "  'GPU programlama, dagitik sistemler' icin ilk 5 sonuc:"
+echo "  'Gaza ceasefire, Palestine solidarity' icin ilk 5 sonuc:"
 echo "$feed" | python -c "
 import json,sys
 try:
@@ -126,13 +126,13 @@ except Exception as e:
 " 2>/dev/null || echo "    (python yok, ham cikti atlandi)"
 
 # Farkli bir ilgi alani belirgin sekilde farkli sonuc vermeli
-curl -s -X POST "$API/users/test-food/interests" \
+curl -s -X POST "$API/users/test-climate/interests" \
   -H 'Content-Type: application/json' \
-  -d '{"interests":["yemek tarifleri","kahve demleme"]}' >/dev/null 2>&1
+  -d '{"interests":["COP28 climate negotiations","environment policy","sustainability"]}' >/dev/null 2>&1
 
-feed2=$(curl -s "$API/users/test-food/feed?limit=5" 2>/dev/null)
+feed2=$(curl -s "$API/users/test-climate/feed?limit=5" 2>/dev/null)
 echo ""
-echo "  'yemek tarifleri, kahve demleme' icin ilk 5 sonuc:"
+echo "  'COP28 climate negotiations, environment policy' icin ilk 5 sonuc:"
 echo "$feed2" | python -c "
 import json,sys
 try:

@@ -18,7 +18,7 @@
 
 \begin{document}
 
-\title{DistribuTweet: A Pseudo-Distributed Content-Based Recommendation System for Tweet Streams}
+\title{DistribuTweet: A Pseudo-Distributed Content-Based Recommendation System for Twitter/X Streams}
 
 \author{
 \IEEEauthorblockN{Arda Onat Acar}
@@ -37,26 +37,26 @@ Istanbul, T\"urkiye}
 \maketitle
 
 \begin{abstract}
-Social media platforms must continuously rank a large stream of posts for users with different interests. Production systems often combine follow graphs, engagement histories, freshness, quality signals, and policy constraints, but those signals are difficult to reproduce in a small course project. This paper presents DistribuTweet, a pseudo-distributed content-based recommendation system for tweet-like streams. The system generates records compatible with the public RecSys Challenge 2021 Twitter schema, publishes them to Apache Kafka, cleans and decodes them with Apache Spark Structured Streaming, embeds multilingual text with a local sentence-transformer model, stores vectors in Qdrant, and serves personalized feeds through a Scala http4s API. User profiles are created from explicit interest phrases, and feed items are ranked with a transparent formula combining semantic similarity and recency. The implementation runs locally with Docker Compose while preserving distributed-system boundaries: Kafka topics use partitions, Spark runs on a standalone master with workers, embedding consumers run as a shared consumer group, and the API is separated from vector storage. The result is an inspectable end-to-end prototype that demonstrates semantic recommendation, streaming ingestion, vector search, and horizontal scaling concepts without requiring proprietary production data.
+Social media platforms must continuously rank a large stream of posts for users with different interests. Production systems often combine follow graphs, engagement histories, freshness, quality signals, and policy constraints, but these signals are difficult to reproduce in a small course project. This paper presents DistribuTweet, a pseudo-distributed content-based recommendation system for Twitter/X-like streams. The implemented demo uses the public Bright Data Twitter/X posts sample, converts CSV rows into an internal tweet feature stream, publishes them to Apache Kafka, cleans and decodes them with Apache Spark Structured Streaming, embeds multilingual text with a sentence-transformer model, stores vectors in Qdrant, and serves personalized feeds through a Scala http4s API. User profiles are created from explicit interest phrases, and feed items are ranked with a transparent formula combining semantic similarity and recency. The implementation runs locally with Docker Compose while preserving distributed-system boundaries: Kafka topics use partitions, Spark runs on a standalone master with workers, embedding consumers run as a shared consumer group, and the API is separated from vector storage. The result is an inspectable end-to-end prototype that demonstrates semantic recommendation, streaming ingestion, vector search, and horizontal scaling concepts on a real public Twitter/X sample.
 \end{abstract}
 
 \begin{IEEEkeywords}
-content-based recommendation, stream processing, Apache Kafka, Apache Spark, vector database, sentence embeddings, Qdrant, Scala, RecSys Challenge
+content-based recommendation, stream processing, Apache Kafka, Apache Spark, vector database, sentence embeddings, Qdrant, Scala, Twitter/X dataset
 \end{IEEEkeywords}
 
 \section{Introduction}
 Personalized social feeds are a continuous ranking problem. A platform receives many posts, while each user can consume only a small subset. Pure chronological ordering is simple, but it does not guarantee relevance. Follow graphs and collaborative signals are powerful, yet they require user history, graph data, and large-scale feedback logs. For a course-scale prototype, a content-based approach is a practical baseline: it recommends posts by comparing the meaning of a user's stated interests with the meaning of incoming post text.
 
-DistribuTweet implements this baseline as an end-to-end distributed data path. The project is not only a recommendation formula; it includes data production, messaging, stream processing, embedding, vector indexing, an API, tests, and demo scripts. The system follows the RecSys Challenge 2021 Twitter feature schema \cite{belli2021recsys} so that the ingestion layer resembles a realistic tweet-engagement dataset, while the current local demo uses a feature-schema-compatible synthetic generator because the original external dataset is not shipped with the submission.
+DistribuTweet implements this baseline as an end-to-end distributed data path. The project is not only a recommendation formula; it includes data ingestion, messaging, stream processing, embedding, vector indexing, an API, tests, and demo scripts. The current implementation uses Bright Data's public Twitter/X sample repository as the local dataset source \cite{brightdataGithub}. The same data family is also offered in larger marketplace packages, including a Databricks Marketplace listing for Twitter/X posts and profiles at 20 million records \cite{databricksBrightData}. Therefore, the prototype can be demonstrated with a small public sample while keeping a plausible migration path toward larger data exports.
 
-The main contributions are: (i) a reproducible Docker Compose environment with Kafka, Spark, Qdrant, embedding workers, and a Scala API; (ii) a RecSys-feature-schema-compatible producer whose records contain real multilingual BERT token IDs; (iii) a Spark cleaner that parses TSV records, validates them, decodes WordPiece tokens, and deduplicates tweets; (iv) a vector retrieval and ranking layer that exposes semantic, recency, and final scores; and (v) scripts that demonstrate distribution across Kafka partitions, Spark workers, and embedding consumers.
+The main contributions are: (i) a reproducible Docker Compose environment with Kafka, Spark, Qdrant, embedding workers, and a Scala API; (ii) a Bright Data CSV adapter that maps public Twitter/X rows into the project's internal stream schema; (iii) a Spark cleaner that parses TSV records, validates them, decodes WordPiece tokens, and deduplicates tweets; (iv) a vector retrieval and ranking layer that exposes semantic, recency, and final scores; and (v) scripts that demonstrate distribution across Kafka partitions, Spark workers, and embedding consumers.
 
 \section{Related Work}
 Content-based recommendation systems represent users and items through item attributes and recommend items similar to the user's profile \cite{pazzani2007content}. Hybrid recommenders combine content-based and collaborative signals to improve coverage and accuracy \cite{burke2002hybrid}. Large industrial recommenders commonly separate candidate generation from ranking; for example, YouTube's recommender uses a retrieval stage followed by a ranking stage \cite{covington2016youtube}. DistribuTweet mirrors this separation at a smaller scale: Qdrant retrieves semantically similar candidates, and the API applies a lightweight ranking formula.
 
 The stream-processing architecture builds on well-known distributed systems. Kafka provides a durable publish-subscribe log for decoupling producers and consumers \cite{kreps2011kafka}. Spark provides a unified engine for distributed data processing \cite{zaharia2016spark}. DistribuTweet uses Kafka for the raw and cleaned post streams and Spark Structured Streaming for validation, token decoding, and deduplication.
 
-Semantic retrieval relies on dense sentence representations. Sentence-BERT showed that transformer-based encoders can generate sentence embeddings suitable for efficient similarity search \cite{reimers2019sentencebert}. The implementation uses the multilingual MiniLM sentence-transformer model, producing normalized 384-dimensional vectors. Qdrant stores these vectors and supports cosine search over a collection \cite{qdrantdocs}. The input schema is based on the Twitter-provided RecSys Challenge 2021 dataset, which focuses on tweet engagement prediction and fairness-aware recommendation \cite{recsys2021challenge}.
+Semantic retrieval relies on dense sentence representations. Sentence-BERT showed that transformer-based encoders can generate sentence embeddings suitable for efficient similarity search \cite{reimers2019sentencebert}. The implementation uses the multilingual MiniLM sentence-transformer model, producing normalized 384-dimensional vectors. Qdrant stores these vectors and supports cosine search over a collection \cite{qdrantdocs}. Bright Data's Twitter/X dataset pages describe structured post fields such as description text, posting time, hashtags, media, engagement counts, and profile metadata \cite{brightdataProduct}; these fields are appropriate for building a content-based feed prototype.
 
 \section{System Architecture}
 The implemented pipeline is shown below:
@@ -64,7 +64,8 @@ The implemented pipeline is shown below:
 \begin{center}
 \begin{tabular}{>{\raggedright\arraybackslash}p{0.95\linewidth}}
 \toprule
-\texttt{data-generator / optional RecSys TSV file} $\rightarrow$
+\texttt{Bright Data CSV sample} $\rightarrow$
+\texttt{CSV-to-TSV adapter} $\rightarrow$
 \texttt{Kafka posts.raw} $\rightarrow$
 \texttt{Scala Spark cleaner} $\rightarrow$
 \texttt{Kafka posts.cleaned} $\rightarrow$
@@ -84,14 +85,14 @@ The project runs on a single physical machine, but the services are intentionall
 \toprule
 \textbf{Component} & \textbf{Technology and Role}\\
 \midrule
-Data generator & Python, Kafka client, Hugging Face tokenizer; generates RecSys 2021 feature-schema-compatible TSV records.\\
+Data adapter & Python, Kafka client, Hugging Face tokenizer; reads Bright Data Twitter/X CSV and emits internal tweet feature TSV rows.\\
 Messaging & Apache Kafka 3.8.0; topics \texttt{posts.raw} and \texttt{posts.cleaned}, each with three partitions.\\
 Stream cleaning & Scala 2.12, Spark 3.5.4 Structured Streaming; TSV parsing, validation, WordPiece decode, deduplication.\\
 Embedding & Python, sentence-transformers; multilingual MiniLM embeddings, 384 dimensions.\\
 Vector storage & Qdrant 1.12.4; cosine vector search over post embeddings.\\
 API & Scala 2.12, http4s, Circe; profile creation and personalized feed retrieval.\\
 Deployment & Docker Compose for pseudo-distributed local execution; Kubernetes notes for future cluster deployment.\\
-Testing & Scala tests for TSV parsing, WordPiece decoding, ranking, and stable fingerprint behavior.\\
+Testing & Python tests for CSV conversion; Scala tests for TSV parsing, WordPiece decoding, ranking, and stable fingerprint behavior.\\
 \bottomrule
 \end{tabular}
 \label{tab:stack}
@@ -99,16 +100,18 @@ Testing & Scala tests for TSV parsing, WordPiece decoding, ranking, and stable f
 \end{table}
 
 \section{Implementation Details}
-\subsection{RecSys-Compatible Data Source}
-The project targets the RecSys Challenge 2021 Twitter schema rather than inventing a private format. The original dataset contains tokenized tweet text, user metadata, tweet metadata, and engagement-related fields \cite{belli2021recsys}. Since the full external dataset is large and not bundled with the project, the submitted implementation includes a synthetic generator that follows the RecSys-style feature columns used by the content-based pipeline.
+\subsection{Dataset and Adapter}
+The default dataset source is the public Bright Data Twitter/X sample repository \cite{brightdataGithub}. The downloaded CSV currently contains 1000 post rows. Its important fields for this project are \texttt{id}, \texttt{user\_posted}, \texttt{description}, \texttt{date\_posted}, \texttt{photos}, \texttt{videos}, \texttt{hashtags}, \texttt{followers}, \texttt{following}, and \texttt{is\_verified}. The source data itself is not committed to the project zip; the paper and README provide the official links.
 
-The generator creates tweet-like records from topic pools such as technology, sports, music, food, travel, gaming, science, finance, health, and art. It uses \texttt{bert-base-multilingual-cased} tokenization, so the \texttt{text\_tokens} field contains real multilingual BERT token IDs, matching the important privacy-preserving characteristic of the RecSys data. The generated rows contain the feature columns used by the content-based pipeline. If a real training TSV contains additional engagement label columns, the producer and Spark parser can ignore those extra columns because this prototype does not train on engagement outcomes. The producer also includes an optional file mode, \texttt{--input-tsv}, so if a compatible RecSys TSV file is available, the rest of the pipeline can process file rows without changing Kafka, Spark, embedding, Qdrant, or API code.
+The sample is a small version of the same type of data offered through larger Bright Data marketplace products. The Databricks Marketplace listing referenced for the project describes a Twitter/X posts and profiles dataset with 20 million records \cite{databricksBrightData}. Bright Data also states that Twitter post datasets can be delivered in formats such as CSV, JSON, NDJSON, and Parquet and can be filtered or customized \cite{brightdataProduct}. This matters because the implemented adapter is not limited to the 1000-row sample. If a larger CSV or Parquet export is obtained for academic research, the same ingestion boundary can be reused with batching and limits.
+
+The adapter maps CSV rows into the internal stream schema. The \texttt{id} field becomes \texttt{tweet\_id}; \texttt{description} is tokenized with \texttt{bert-base-multilingual-cased} and stored as \texttt{text\_tokens}; \texttt{date\_posted} is converted to Unix seconds; \texttt{user\_posted} is hashed into an author identifier; hashtags and media fields become list metadata. The public sample does not contain a normalized language field, so the adapter writes \texttt{und} as a metadata value. The downstream ranking does not depend on this field.
 
 \subsection{Kafka Ingestion}
-The \texttt{data-generator} service writes TSV records to \texttt{posts.raw}. Kafka is configured with explicit topic creation and three partitions to demonstrate partitioned ingestion. The producer uses the tweet ID as the Kafka key, giving stable partitioning and making duplicates observable downstream. The default data generation rate is configurable through \texttt{RATE\_PER\_SEC}, and \texttt{TOTAL\_MESSAGES=0} means continuous generation.
+The \texttt{data-generator} service writes internal TSV records to \texttt{posts.raw}. In the default Docker Compose run, it reads the Bright Data CSV from the GitHub raw URL and publishes the first 1000 rows. The number of processed rows can be changed with \texttt{TOTAL\_MESSAGES}; for example, the same pipeline can process the first 10, 100, or 1000 rows without code changes. The producer uses the tweet ID as the Kafka key, giving stable partitioning and making duplicates observable downstream.
 
 \subsection{Spark Cleaning and Token Decode}
-The Spark cleaner consumes \texttt{posts.raw}. It parses each TSV row according to the RecSys schema, rejects malformed records, validates required fields, decodes BERT token IDs back into text using a broadcast \texttt{vocab.txt}, and removes duplicate tweet IDs with event-time watermarking. The cleaner writes accepted records as JSON to \texttt{posts.cleaned}. Its responsibility is deliberately limited to data preparation; it does not make recommendation decisions.
+The Spark cleaner consumes \texttt{posts.raw}. It parses each TSV row according to the internal tweet feature schema, rejects malformed records, validates required fields, decodes BERT token IDs back into text using a broadcast \texttt{vocab.txt}, and removes duplicate tweet IDs with event-time watermarking. The cleaner writes accepted records as JSON to \texttt{posts.cleaned}. Its responsibility is deliberately limited to data preparation; it does not make recommendation decisions.
 
 \subsection{Embedding Workers and Qdrant}
 The embedding workers consume \texttt{posts.cleaned} using a shared Kafka consumer group. Each valid cleaned post is embedded with \texttt{paraphrase-multilingual-MiniLM-L12-v2}. Vectors are normalized and written to the Qdrant \texttt{posts} collection with cosine distance and size 384. The same Python image also runs as a single HTTP embedding service on port 8000 with consumer mode disabled; the Scala API calls this service when it needs to embed user interest phrases.
@@ -161,13 +164,13 @@ The main demonstration starts all services with:
 docker compose up -d --build
 \end{verbatim}
 
-The \texttt{data-generator} begins producing RecSys-feature-schema-compatible records. The \texttt{scripts/demo.sh} script then walks through the full system: production, Kafka partition distribution, Spark cleaning, embedding worker group status, Qdrant vector count, and three feed examples for different interest profiles. Health and verification are available through \texttt{scripts/smoke-test.sh}. The distribution proof script, \texttt{scripts/show-distribution.sh}, displays Kafka partition assignment and worker distribution.
+The \texttt{data-generator} begins replaying the Bright Data Twitter/X sample. The \texttt{scripts/demo.sh} script then walks through the full system: dataset replay, Kafka partition distribution, Spark cleaning, embedding worker group status, Qdrant vector count, and three feed examples for different interest profiles. Health and verification are available through \texttt{scripts/smoke-test.sh}. The distribution proof script, \texttt{scripts/show-distribution.sh}, displays Kafka partition assignment and worker distribution.
 
 \subsection{Observed Behavior}
-The system demonstrates that content-based semantic search can separate topic clusters without using a follow graph. For example, technology interests should return technology-like posts, while food-related interests should return cooking or coffee-related posts. Because the embedding model is multilingual, Turkish interests can retrieve semantically related posts in other languages when the generated stream contains them.
+The system demonstrates that content-based semantic search can retrieve posts related to explicit interests without using a follow graph. In the smoke test, a profile containing phrases such as \texttt{Gaza ceasefire}, \texttt{Palestine solidarity}, and \texttt{human rights} returned posts about Palestine solidarity and related public discussions from the indexed sample. Since the public sample is not balanced by topic and is much smaller than the commercial dataset, the evaluation is functional and qualitative rather than a statistical recommender benchmark.
 
 \subsection{Tests}
-The Scala test suite covers RecSys TSV parsing, validation behavior, WordPiece decoding, ranking score calculations, and deterministic fingerprint behavior. The Docker build includes these tests, so broken core logic prevents image creation. The project also provides smoke tests for the running Compose environment.
+Python tests cover Bright Data CSV conversion, offset and limit handling, timestamp parsing, hashtag mapping, and empty-description filtering. The Scala test suite covers internal TSV parsing, validation behavior, WordPiece decoding, ranking score calculations, and deterministic fingerprint behavior. The Docker build includes the Scala tests, so broken core logic prevents image creation. The project also provides smoke tests for the running Compose environment.
 
 \section{Deployment}
 Docker Compose is the primary target. The environment starts Kafka, Qdrant, Spark master, two Spark workers, Spark cleaner, data generator, two embedding workers, one embedding API, and the recommendation API. The exposed interfaces include the Spark master UI at port 8080, Spark application UI around port 4040, Qdrant dashboard at port 6333, embedding health at port 8000, and recommendation API at port 8081.
@@ -175,12 +178,12 @@ Docker Compose is the primary target. The environment starts Kafka, Qdrant, Spar
 The implementation is pseudo-distributed: all containers run on one machine, but the software boundaries match a horizontally scalable design. Kafka can repartition topics, Spark can run additional workers, and embedding workers can be scaled with Docker Compose. Post vectors are stored outside the API process in Qdrant. User profile vectors are kept in API memory in the current prototype, so multi-replica API deployment would require moving profiles to Qdrant or another shared store.
 
 \section{Limitations}
-DistribuTweet does not train a learned ranking model. It does not use collaborative filtering, impression history, authentication, moderation, or private production features. The generator follows the RecSys schema and tokenization behavior, but the local data are synthetic unless a compatible TSV file is supplied through the producer's file mode. Therefore, the evaluation demonstrates system correctness and architectural scalability, not production recommendation quality. Also, the original RecSys task includes engagement and fairness objectives that are not yet optimized by this content-based prototype.
+DistribuTweet does not train a learned ranking model. It does not use collaborative filtering, impression history, authentication, moderation, or private production features. The default public sample contains only about 1000 rows and is not balanced for recommender evaluation. The adapter tokenizes plain CSV text into the internal TSV stream format, but large Parquet exports would require either conversion to CSV or a small Parquet reader extension. Therefore, the evaluation demonstrates system correctness and architectural scalability, not production recommendation quality.
 
 \section{Conclusion and Future Work}
-This project implements a working pseudo-distributed semantic recommendation pipeline for tweet-like streams. Kafka decouples services, Spark cleans and decodes RecSys-style records, the embedding workers index multilingual vectors, Qdrant provides vector retrieval, and the Scala API serves personalized feeds with explainable scores.
+This project implements a working pseudo-distributed semantic recommendation pipeline for Twitter/X-like streams. Kafka decouples services, Spark cleans and decodes internal tweet feature records, the embedding workers index multilingual vectors, Qdrant provides vector retrieval, and the Scala API serves personalized feeds with explainable scores.
 
-Future work should use real RecSys TSV files when available, incorporate engagement labels, train a ranking model, add impression history, evaluate ranking metrics such as NDCG, add stronger diversity controls, monitor latency and Kafka lag, and test a multi-node Kubernetes deployment.
+Future work should process a larger Bright Data export, incorporate engagement counts as ranking features, train a ranking model, add impression history, evaluate ranking metrics such as NDCG, add stronger diversity controls, monitor latency and Kafka lag, and test a multi-node Kubernetes deployment. If academic access to the 20 million record dataset is obtained, the first technical step would be to run the existing adapter in bounded batches and compare throughput across 1000, 10000, and larger row counts.
 
 \section*{Acknowledgment}
 This project was developed as a course project by Arda Onat Acar and Nihat Emre Y\"uz\"ug\"uld\"u.
@@ -204,11 +207,14 @@ M. Zaharia \textit{et al.}, ``Apache Spark: A unified engine for big data proces
 \bibitem{reimers2019sentencebert}
 N. Reimers and I. Gurevych, ``Sentence-BERT: Sentence embeddings using Siamese BERT-networks,'' in \textit{Proc. EMNLP-IJCNLP}, 2019.
 
-\bibitem{belli2021recsys}
-L. Belli \textit{et al.}, ``The 2021 RecSys challenge dataset: Fairness is not optional,'' in \textit{Proc. Recommender Systems Challenge 2021}, 2021, pp. 1--6.
+\bibitem{brightdataGithub}
+Bright Data, ``Twitter/X dataset samples,'' GitHub repository. [Online]. Available: \url{https://github.com/luminati-io/Twitter-X-dataset-samples}. Accessed: Aug. 17, 2026.
 
-\bibitem{recsys2021challenge}
-ACM RecSys, ``RecSys Challenge 2021,'' 2021. [Online]. Available: \url{https://recsys.acm.org/recsys21/challenge/}. Accessed: Aug. 17, 2026.
+\bibitem{databricksBrightData}
+Databricks Marketplace, ``Bright Data SAMPLE Twitter/X Data: Twitter/X Posts and Profiles Datasets, 20M Records.'' [Online]. Available: \url{https://marketplace.databricks.com/details/71cafc8b-8465-4dbd-9a4a-23e4be50b063/Bright-Data_SAMPLE-Twitter-X-Data-Twitter-X-Posts-and-Profiles-Datasets-20M-Records}. Accessed: Aug. 17, 2026.
+
+\bibitem{brightdataProduct}
+Bright Data, ``Twitter datasets,'' Bright Data dataset marketplace. [Online]. Available: \url{https://brightdata.com/products/datasets/twitter}. Accessed: Aug. 17, 2026.
 
 \bibitem{qdrantdocs}
 Qdrant, ``Qdrant documentation.'' [Online]. Available: \url{https://qdrant.tech/documentation/}. Accessed: Aug. 17, 2026.

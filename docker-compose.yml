@@ -1,4 +1,4 @@
-name: tweet-recsys
+name: distributweet
 
 services:
   # ---------------------------------------------------------------
@@ -190,10 +190,12 @@ services:
     environment:
       KAFKA_BOOTSTRAP: kafka:9092
       TOPIC: posts.raw
-      RATE_PER_SEC: "20"
-      TOTAL_MESSAGES: "0"        # 0 = sinirsiz
-      SEED: "42"
-    restart: unless-stopped
+      INPUT_CSV: ${INPUT_CSV:-https://raw.githubusercontent.com/luminati-io/Twitter-X-dataset-samples/main/twitter-posts.csv}
+      INPUT_OFFSET: ${INPUT_OFFSET:-0}
+      RATE_PER_SEC: ${RATE_PER_SEC:-50}
+      TOTAL_MESSAGES: ${TOTAL_MESSAGES:-1000}
+      SEED: ${SEED:-42}
+    restart: "no"
 
   # ---------------------------------------------------------------
   # Embedding worker'lari: ayni consumer group, 2 replica

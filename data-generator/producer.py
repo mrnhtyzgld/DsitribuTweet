@@ -1,11 +1,13 @@
-"""Uretilen kayitlari Kafka posts.raw topic'ine yazar.
+"""Dataset rows or generated records are written to Kafka ``posts.raw``.
 
 Iki mod destekler:
-  - sentetik (varsayilan): generator.py ile RecSys 2021 feature semasinda kayit uretir
-  - --input-tsv PATH     : gercek RecSys 2021 TSV dosyasini satir satir okur
+  - --input-csv PATH/URL : Bright Data Twitter/X CSV sample'ini okur
+  - --input-tsv PATH     : ic TSV feature formatini satir satir okur
+  - sentetik             : generator.py ile tweet-like kayit uretir
 
-Ikinci mod, veri setine erisim saglandigi durumda hattin geri kalanini hic
-degistirmeden gercek veriye gecebilmek icin vardir.
+CSV modu, varsayilan demo akisi icindir. CSV satirlari mevcut ic TSV feature
+formatina cevrilir; Kafka, Spark, embedding, Qdrant ve API katmanlari aynen
+calisir.
 """
 
 import argparse
@@ -18,6 +20,7 @@ import time
 from kafka import KafkaProducer
 from kafka.errors import NoBrokersAvailable
 
+import brightdata
 import generator
 
 logging.basicConfig(
@@ -88,14 +91,13 @@ def run_synthetic(producer: KafkaProducer, topic: str, rate: float, total: int, 
     log.info("uretim bitti. toplam=%d konu dagilimi=%s", sent, topic_counts)
 
 
-def run_from_file(producer: KafkaProducer, topic: str, path: str, rate: float, total: int):
-    """Gercek RecSys 2021 TSV dosyasindan okur.
+def run_from_tsv(producer: KafkaProducer, topic: str, path: str, rate: float, total: int):
+    """Ic TSV feature formatindaki dosyadan okur.
 
-    Ilk feature kolonlari ayni oldugu icin downstream'de hicbir degisiklik
-    gerekmez. Gercek egitim dosyasinda ek engagement label kolonlari varsa
-    Spark parser bunlari yok sayar. tweet_id 3. kolondur (0-indexed: 2).
+    Downstream'de hicbir degisiklik gerekmez. Ek kolonlar varsa Spark parser
+    bunlari yok sayar. tweet_id 3. kolondur (0-indexed: 2).
     """
-    log.info("dosyadan okuma: %s", path)
+    log.info("TSV dosyasindan okuma: %s", path)
     interval = 1.0 / rate if rate > 0 else 0.0
     sent = 0
 
@@ -123,9 +125,43 @@ def run_from_file(producer: KafkaProducer, topic: str, path: str, rate: float, t
     log.info("dosya okuma bitti. toplam=%d", sent)
 
 
+def run_from_brightdata_csv(
+    producer: KafkaProducer,
+    topic: str,
+    source: str,
+    rate: float,
+    total: int,
+    offset: int,
+):
+    """Bright Data Twitter/X CSV sample'ini okuyup ic TSV formatinda Kafka'ya yazar."""
+    log.info("Bright Data CSV okuma basliyor: %s", source)
+    interval = 1.0 / rate if rate > 0 else 0.0
+    sent = 0
+    t0 = time.time()
+
+    for tweet_id, row in brightdata.iter_tsv_rows(source, limit=total, offset=offset):
+        if not _running:
+            break
+        producer.send(topic, key=tweet_id, value=row)
+        sent += 1
+        if sent % 100 == 0:
+            elapsed = time.time() - t0
+            log.info("gonderildi: %d kayit (%.1f/sn)", sent, sent / max(elapsed, 0.001))
+        if interval:
+            time.sleep(interval)
+
+    producer.flush()
+    log.info("Bright Data CSV okuma bitti. toplam=%d", sent)
+
+
 def main():
-    parser = argparse.ArgumentParser(description="RecSys 2021 feature semali Kafka producer")
-    parser.add_argument("--input-tsv", help="Gercek RecSys 2021 TSV dosyasi (opsiyonel)")
+    parser = argparse.ArgumentParser(description="Tweet feature Kafka producer")
+    parser.add_argument("--input-csv", default=os.getenv("INPUT_CSV", ""),
+                        help="Bright Data Twitter/X CSV dosyasi veya URL")
+    parser.add_argument("--input-tsv", default=os.getenv("INPUT_TSV", ""),
+                        help="Ic TSV feature dosyasi (opsiyonel)")
+    parser.add_argument("--offset", type=int, default=int(os.getenv("INPUT_OFFSET", "0")),
+                        help="CSV/TSV okurken atlanacak satir sayisi")
     parser.add_argument("--rate", type=float,
                         default=float(os.getenv("RATE_PER_SEC", "20")),
                         help="saniyede kac kayit")
@@ -143,8 +179,10 @@ def main():
 
     producer = connect(bootstrap)
     try:
-        if args.input_tsv:
-            run_from_file(producer, topic, args.input_tsv, args.rate, args.total)
+        if args.input_csv:
+            run_from_brightdata_csv(producer, topic, args.input_csv, args.rate, args.total, args.offset)
+        elif args.input_tsv:
+            run_from_tsv(producer, topic, args.input_tsv, args.rate, args.total)
         else:
             run_synthetic(producer, topic, args.rate, args.total, args.seed)
     finally:

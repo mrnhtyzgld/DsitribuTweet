@@ -11,7 +11,7 @@ Arda Onat Acar (231401010) · Nihat Emre Yüzügüldü (221401009)
 ## Mimari
 
 ```
-data-generator (Python)          RecSys 2021 feature şemasında TSV kayıtları
+data-generator (Python)          Bright Data Twitter/X CSV → iç TSV kayıtları
         │
         ▼
    Kafka: posts.raw              3 partition
@@ -38,52 +38,54 @@ aynı fiziksel makine üzerindedir.
 
 ---
 
-## Veri seti hakkında — önemli not
+## Veri Seti
 
-Proje **RecSys 2021 Challenge** (Twitter) veri setini hedefliyordu. İki engel çıktı:
+Varsayılan demo artık **Bright Data Twitter/X Posts sample** kullanır:
+[luminati-io/Twitter-X-dataset-samples](https://github.com/luminati-io/Twitter-X-dataset-samples).
+Bu repo `twitter-posts.csv` içinde 1000 public X/Twitter gönderisi sağlar.
+Alanlar arasında `id`, `user_posted`, `description`, `date_posted`,
+`hashtags`, `followers`, `likes`, `reposts` ve `views` bulunur.
 
-1. **Orijinal dağıtım portalı kapandı.** Veri `recsys-twitter.com` üzerinden,
-   onaylı bir Twitter Developer hesabıyla dağıtılıyordu. Domain artık veri portalı
-   değil. Veri seti platformla sürekli senkron tutuluyordu (silinen tweetler veri
-   setinden de çıkarılıyordu — [makale §3.3](https://arxiv.org/pdf/2109.08245)),
-   bu da X'in API politikası değiştikten sonra sürdürülemez hale geldi.
+Bu sample, Bright Data'nın daha büyük Twitter/X Posts and Profiles veri
+ürününün küçük bir parçasıdır. Databricks Marketplace üzerinde aynı veri
+ailesi için 20M kayıtlık paket listelenir:
+[Bright Data SAMPLE Twitter/X Data](https://marketplace.databricks.com/details/71cafc8b-8465-4dbd-9a4a-23e4be50b063/Bright-Data_SAMPLE-Twitter-X-Data-Twitter-X-Posts-and-Profiles-Datasets-20M-Records).
+Akademik araştırma için daha büyük veri erişimi alınırsa aynı adapter daha
+büyük CSV/Parquet export'larına uyarlanabilir.
 
-2. **Veri setinin odağı farklı.** RecSys 2021 *engagement prediction* için
-   tasarlanmış (like/retweet olasılığı, ~200 GB, ~1 milyar satır). Bu proje ise
-   içerik tabanlı anlamsal benzerlik yapıyor ve takip grafiğini açıkça kapsam dışı
-   bırakıyor — yani veri setinin asıl değerli kısmı (engagement etiketleri,
-   follower grafiği) zaten kullanılmayacaktı.
+### CSV → İç Stream Formatı
 
-**Yaklaşım:** Veri setinin **şeması** referans alındı, veri sentetik olarak üretiliyor.
+Spark tarafını sade tutmak için raw Kafka mesajları kompakt bir iç TSV feature
+formatında taşınır. `data-generator/brightdata.py`, Bright Data CSV satırlarını
+bu formata çevirir:
 
-`data-generator/generator.py`, [RecSys 2021 makalesindeki](https://arxiv.org/pdf/2109.08245)
-tweet/user feature alanlarını temel alan bir TSV üretir:
+- `id` → `tweet_id`
+- `description` → `bert-base-multilingual-cased` token ID listesi
+- `date_posted` → Unix timestamp
+- `user_posted` → hash'lenmiş author ID
+- `hashtags` → `0x01` ile ayrılmış hashtag listesi
+- `photos` / `videos` → media metadata
+- `followers`, `following`, `is_verified` → author metadata
 
-- Pipeline'ın kullandığı ilk 20 feature kolonu, aynı sıra, TSV formatı,
-  `0x01` liste ayracı
-- `text_tokens` alanı **gerçek** `bert-base-multilingual-cased` token ID'leri
-  içerir — sentetik metin gerçek tokenizer'dan geçirilir
-- Gerçek training TSV dosyasında ek engagement label/timestamp kolonları varsa
-  producer ve Spark parser bunları yok sayarak aynı hattı çalıştırabilir
+Yani dış veri kaynağı CSV'dir; Kafka ve Spark arasındaki iç format ise TSV'dir.
+Spark cleaner token ID'leri
+[`WordPieceDecoder`](scala/common/src/main/scala/com/bil401/common/WordPieceDecoder.scala)
+ile tekrar metne çevirir ve `posts.cleaned` topic'ine JSON yazar. Böylece
+embedding worker düz metinle çalışır.
 
-Bu sadakat sayesinde gerçek veriye erişim sağlanırsa hattın geri kalanı hiç
-değişmez; yalnızca producer dosyadan okumaya geçer:
+Varsayılan Compose çalıştırması sample CSV'yi GitHub raw URL'sinden okur:
 
 ```bash
-python producer.py --input-tsv /path/to/part-00000
+docker compose up -d --build
 ```
 
-### Metin neden token ID olarak geliyor?
+İsterseniz aynı producer yerel CSV veya önceden dönüştürülmüş iç TSV dosyası da
+okuyabilir:
 
-RecSys 2021, gizlilik gerekçesiyle tweet metnini düz metin olarak yayınlamadı;
-metin mBERT tokenizer'ından geçirilip **token ID listesi** olarak dağıtıldı.
-
-Bu bizim için önemli: kullanıcı ilgi alanları düz metin olarak geliyor, tweetler
-ise token ID olarak. İkisinin aynı vektör uzayını paylaşması için token'ları
-metne geri çevirmemiz gerekiyor. Bu, Spark katmanında
-[`WordPieceDecoder`](scala/common/src/main/scala/com/bil401/common/WordPieceDecoder.scala)
-ile yapılır — `vocab.txt`'ten `id → token` haritası kurulup WordPiece `##`
-birleştirmesi uygulanır (JVM'de Python tokenizer çalıştırmaya gerek kalmadan).
+```bash
+python data-generator/producer.py --input-csv /path/to/twitter-posts.csv --total 1000 --rate 100
+python data-generator/producer.py --input-tsv /path/to/internal-feature.tsv --total 10000 --rate 200
+```
 
 ---
 
@@ -99,8 +101,10 @@ docker compose up -d --build
 ```
 
 İlk build uzun sürer (~10-15 dk): Scala bağımlılıkları indirilir, embedding
-modeli (~470 MB) ve mBERT vocab dosyası image içine gömülür. Sonraki
-başlatmalar saniyeler sürer ve **internet gerektirmez**.
+modeli (~470 MB) ve mBERT vocab dosyası image içine gömülür. Varsayılan demo
+ayrıca Bright Data sample CSV'sini GitHub raw URL'sinden okuduğu için ilk veri
+replay anında internet gerekir. İnternetsiz demo için CSV'yi önceden indirip
+`INPUT_CSV=/path/to/twitter-posts.csv` verebilirsiniz.
 
 Durumu izlemek için:
 
@@ -125,7 +129,7 @@ temizliyor mu, worker vektörlüyor mu, API anlamlı sonuç dönüyor mu.
 # İlgi alanlarını kaydet
 curl -X POST localhost:8081/users/user-1/interests \
   -H 'Content-Type: application/json' \
-  -d '{"interests":["GPU programlama","dagitik sistemler"]}'
+  -d '{"interests":["Gaza ceasefire","Palestine solidarity","human rights"]}'
 
 # Kişiselleştirilmiş akışı al
 curl 'localhost:8081/users/user-1/feed?limit=10'
@@ -134,10 +138,9 @@ curl 'localhost:8081/users/user-1/feed?limit=10'
 Dönen her gönderide `semanticSimilarity`, `recencyScore` ve `finalScore` ayrı
 ayrı görünür — sıralamanın neden o şekilde olduğu izlenebilir.
 
-Veri üreteci tweetleri 10 konu havuzundan üretir (teknoloji, spor, müzik, yemek,
-seyahat, oyun, bilim, finans, sağlık, sanat). Bu, önerinin doğru çalıştığını
-gözle doğrulanabilir kılar: teknoloji ilgi alanı giren kullanıcıya teknoloji
-tweetleri dönmeli, yemek girene yemek tweetleri.
+Veri üreteci varsayılan olarak 1000 satırlık gerçek Twitter/X sample'ını bir kez
+okur. `TOTAL_MESSAGES` değeri ilk 10, 100 veya 1000 satırı denemek için
+değiştirilebilir.
 
 ### Dağıtıklık kanıtı (rapor §6)
 
@@ -173,7 +176,7 @@ docker compose up -d --scale embedding-worker=3
 İlgi alanlarını vektörleştirip kullanıcı profili oluşturur (rapor §4, adım 6-7).
 
 ```json
-{ "interests": ["Scala", "dağıtık sistemler", "GPU programlama"] }
+{ "interests": ["Gaza ceasefire", "Palestine solidarity", "human rights"] }
 ```
 
 Her ilgi alanı ayrı ayrı embed edilir, vektörlerin ortalaması alınıp normalize
@@ -246,9 +249,8 @@ Proje **Scala 2.12** kullanıyor (Spark ekosistemiyle en uyumlu sürüm). 2.13'e
 | `1_000_000` (alt çizgi) | `1000000` |
 
 Ayrıca `line.split("\t")` yerine **`line.split("\t", -1)`** kullanın: limitsiz
-`split` sondaki boş alanları atar ve son kolonları boş olan geçerli RecSys
-kayıtları "eksik kolon" diye reddedilir (gerçek veride engagement timestamp
-alanları sıklıkla boştur).
+`split` sondaki boş alanları atar ve son kolonları boş olan geçerli iç TSV
+kayıtları "eksik kolon" diye reddedilir.
 
 ---
 
@@ -258,8 +260,11 @@ Başlıca ayarlar `docker-compose.yml` içindeki `environment` blokları:
 
 | Değişken | Servis | Varsayılan | Açıklama |
 |---|---|---|---|
-| `RATE_PER_SEC` | data-generator | 20 | Saniyede üretilen kayıt |
-| `TOTAL_MESSAGES` | data-generator | 0 | 0 = sınırsız |
+| `INPUT_CSV` | data-generator | Bright Data GitHub raw CSV | Okunacak Twitter/X CSV |
+| `INPUT_TSV` | data-generator | boş | Opsiyonel iç TSV dosyası |
+| `INPUT_OFFSET` | data-generator | 0 | CSV/TSV başlangıcında atlanacak satır |
+| `RATE_PER_SEC` | data-generator | 50 | Saniyede gönderilen kayıt |
+| `TOTAL_MESSAGES` | data-generator | 1000 | Okunacak maksimum kayıt, 0 = tamamı |
 | `BATCH_SIZE` | embedding-worker | 32 | Kafka poll başına mesaj |
 | `SEMANTIC_WEIGHT` | rec-api | 0.85 | Benzerlik ağırlığı |
 | `RECENCY_WEIGHT` | rec-api | 0.15 | Güncellik ağırlığı |

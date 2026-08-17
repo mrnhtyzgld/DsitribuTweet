@@ -74,4 +74,4 @@ lazy val recApi = (project in file("rec-api"))
 
 lazy val root = (project in file("."))
   .aggregate(common, sparkCleaner, recApi)
-  .settings(name := "tweet-recsys", publish / skip := true)
+  .settings(name := "distributweet", publish / skip := true)

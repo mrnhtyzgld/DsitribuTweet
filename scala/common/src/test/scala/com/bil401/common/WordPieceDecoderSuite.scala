@@ -60,15 +60,15 @@ class WordPieceDecoderSuite extends munit.FunSuite {
   }
 
   test("parse + decode birlikte calisir") {
-    val sep = RecSysSchema.ListSep
-    val cols = Array.fill(RecSysSchema.ColumnCount)("")
-    cols(RecSysSchema.IdxTextTokens) = s"2${sep}5${sep}6${sep}7${sep}8${sep}9${sep}3"
-    cols(RecSysSchema.IdxTweetId) = "t1"
-    cols(RecSysSchema.IdxLanguage) = "tr"
-    cols(RecSysSchema.IdxTweetTimestamp) = "1700000000"
-    cols(RecSysSchema.IdxTweetType) = "TopLevel"
-    cols(RecSysSchema.IdxAuthorId) = "a1"
-    cols(RecSysSchema.IdxAuthorFollowers) = "10"
+    val sep = TweetFeatureSchema.ListSep
+    val cols = Array.fill(TweetFeatureSchema.ColumnCount)("")
+    cols(TweetFeatureSchema.IdxTextTokens) = s"2${sep}5${sep}6${sep}7${sep}8${sep}9${sep}3"
+    cols(TweetFeatureSchema.IdxTweetId) = "t1"
+    cols(TweetFeatureSchema.IdxLanguage) = "tr"
+    cols(TweetFeatureSchema.IdxTweetTimestamp) = "1700000000"
+    cols(TweetFeatureSchema.IdxTweetType) = "TopLevel"
+    cols(TweetFeatureSchema.IdxAuthorId) = "a1"
+    cols(TweetFeatureSchema.IdxAuthorFollowers) = "10"
 
     val post = TsvParser.parse(cols.mkString("\t")).toOption.get
     val cleaned = TsvParser.toCleaned(post, decoder).toOption.get
@@ -79,12 +79,12 @@ class WordPieceDecoderSuite extends munit.FunSuite {
   }
 
   test("cok kisa decode sonucu reddedilir") {
-    val sep = RecSysSchema.ListSep
-    val cols = Array.fill(RecSysSchema.ColumnCount)("")
-    cols(RecSysSchema.IdxTextTokens) = s"2${sep}3" // sadece ozel token'lar
-    cols(RecSysSchema.IdxTweetId) = "t2"
-    cols(RecSysSchema.IdxLanguage) = "tr"
-    cols(RecSysSchema.IdxTweetTimestamp) = "1700000000"
+    val sep = TweetFeatureSchema.ListSep
+    val cols = Array.fill(TweetFeatureSchema.ColumnCount)("")
+    cols(TweetFeatureSchema.IdxTextTokens) = s"2${sep}3" // sadece ozel token'lar
+    cols(TweetFeatureSchema.IdxTweetId) = "t2"
+    cols(TweetFeatureSchema.IdxLanguage) = "tr"
+    cols(TweetFeatureSchema.IdxTweetTimestamp) = "1700000000"
 
     val post = TsvParser.parse(cols.mkString("\t")).toOption.get
     assert(TsvParser.toCleaned(post, decoder).isLeft)

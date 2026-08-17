@@ -2,9 +2,9 @@ package com.bil401.common
 
 class TsvParserSuite extends munit.FunSuite {
 
-  private val sep = RecSysSchema.ListSep
+  private val sep = TweetFeatureSchema.ListSep
 
-  /** Gecerli bir RecSys 2021 TSV satiri kurar. */
+  /** Gecerli bir ic tweet feature TSV satiri kurar. */
   private def row(
       tokens: String = s"101${sep}5000${sep}6000${sep}102",
       tweetId: String = "abc123",
@@ -12,21 +12,21 @@ class TsvParserSuite extends munit.FunSuite {
       timestamp: String = "1700000000",
       hashtags: String = s"spark${sep}kafka"
   ): String = {
-    val cols = Array.fill(RecSysSchema.ColumnCount)("")
-    cols(RecSysSchema.IdxTextTokens) = tokens
-    cols(RecSysSchema.IdxHashtags) = hashtags
-    cols(RecSysSchema.IdxTweetId) = tweetId
-    cols(RecSysSchema.IdxPresentMedia) = "Photo"
-    cols(RecSysSchema.IdxTweetType) = "TopLevel"
-    cols(RecSysSchema.IdxLanguage) = language
-    cols(RecSysSchema.IdxTweetTimestamp) = timestamp
-    cols(RecSysSchema.IdxAuthorId) = "author-1"
-    cols(RecSysSchema.IdxAuthorFollowers) = "1234"
+    val cols = Array.fill(TweetFeatureSchema.ColumnCount)("")
+    cols(TweetFeatureSchema.IdxTextTokens) = tokens
+    cols(TweetFeatureSchema.IdxHashtags) = hashtags
+    cols(TweetFeatureSchema.IdxTweetId) = tweetId
+    cols(TweetFeatureSchema.IdxPresentMedia) = "Photo"
+    cols(TweetFeatureSchema.IdxTweetType) = "TopLevel"
+    cols(TweetFeatureSchema.IdxLanguage) = language
+    cols(TweetFeatureSchema.IdxTweetTimestamp) = timestamp
+    cols(TweetFeatureSchema.IdxAuthorId) = "author-1"
+    cols(TweetFeatureSchema.IdxAuthorFollowers) = "1234"
     cols.mkString("\t")
   }
 
-  test("prototipin kullandigi RecSys-style feature semasi 20 kolon icermeli") {
-    assertEquals(RecSysSchema.ColumnCount, 20)
+  test("prototipin kullandigi tweet feature semasi 20 kolon icermeli") {
+    assertEquals(TweetFeatureSchema.ColumnCount, 20)
   }
 
   test("gecerli satir parse edilir") {
